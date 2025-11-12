@@ -47,7 +47,61 @@ PRD_DRAFT = {
     }
   ],
   "Core Features": [
-    { "Feature Name": "", "Description": "", "Priority": "" }
+    {
+      "Feature Name": "Todo CRUD Operations",
+      "Description": "Complete task management system enabling create/read/update/delete of todos with priority, due dates, recurring patterns, reminders; organized into Overdue, Active, Completed with automatic sorting and optimistic UI updates (Singapore timezone support).",
+      "Priority": "P0 - Critical"
+    },
+    {
+      "Feature Name": "Priority System",
+      "Description": "Three-tier priority (High/Medium/Low) with color-coded badges (red/yellow/blue), default medium, editable anytime, WCAG AA contrast compliant, supports light/dark modes and priority-based sorting/filters.",
+      "Priority": "P0 - Critical"
+    },
+    {
+      "Feature Name": "Recurring Todos",
+      "Description": "Automated repetition for daily/weekly/monthly/yearly patterns; completing an instance creates the next with calculated Singapore timezone due date and inherited metadata; visual 🔄 badge indicates recurrence.",
+      "Priority": "P1 - High"
+    },
+    {
+      "Feature Name": "Reminders & Notifications",
+      "Description": "Browser notifications with seven timing options (5,10,15,30 min,1,2,24 hrs before); requires permission; polling every 30s with duplicate prevention; visual 🔔 badge for reminder timing.",
+      "Priority": "P1 - High"
+    },
+    {
+      "Feature Name": "Subtasks & Progress Tracking",
+      "Description": "Unlimited hierarchical subtasks per todo with real-time progress bar (X/Y completed), color-coded progress states, inline add/toggle/delete, expandable UI, and cascade delete for data integrity.",
+      "Priority": "P1 - High"
+    },
+    {
+      "Feature Name": "Tag System",
+      "Description": "User-defined tags with custom colors managed via a modal; unique names per user; multi-tag assignment shown as badges; clicking a tag filters todos; tag edits propagate to associated todos.",
+      "Priority": "P1 - High"
+    },
+    {
+      "Feature Name": "Template System",
+      "Description": "Reusable todo blueprints storing metadata and serialized subtasks (JSON); templates include name, description, category; using a template creates a new todo with offset due date and recreated subtasks.",
+      "Priority": "P2 - Medium"
+    },
+    {
+      "Feature Name": "Search & Filtering",
+      "Description": "Real-time search with 300ms debounce, case-insensitive matching on titles and tags; combinable AND-filters (priority+tags); active filter summary and optimized for 1000+ todos (<100ms response).",
+      "Priority": "P1 - High"
+    },
+    {
+      "Feature Name": "Export & Import",
+      "Description": "JSON export/import with versioning; export includes todos, subtasks, tags and associations; import validates format, remaps IDs, reuses existing tags on name conflicts, and reports operation counts.",
+      "Priority": "P2 - Medium"
+    },
+    {
+      "Feature Name": "Calendar View",
+      "Description": "Month-based calendar showing todos on due dates with Singapore public holidays; navigation (prev/next/today), day badges, modal day view, weekend styling, and URL state (?month=YYYY-MM).",
+      "Priority": "P2 - Medium"
+    },
+    {
+      "Feature Name": "Authentication (WebAuthn)",
+      "Description": "Passwordless WebAuthn/passkeys for registration and login using device biometrics or security keys; HTTP-only 7-day session cookies; middleware-protected routes and immediate logout clearing session.",
+      "Priority": "P0 - Critical"
+    }
   ],
   "User Journey": "",
   "Technical Considerations": "",

@@ -225,7 +225,12 @@ export const todoDB = {
   },
   update: (id: number, data: Partial<Todo>): void => {
     const fields = Object.keys(data).filter(k => k !== 'id').map(k => `${k} = ?`).join(', ');
-    const values = Object.keys(data).filter(k => k !== 'id').map(k => (data as any)[k]);
+    const values = Object.keys(data).filter(k => k !== 'id').map(k => {
+      const val = (data as any)[k];
+      // Convert boolean to 0/1 for SQLite
+      if (typeof val === 'boolean') return val ? 1 : 0;
+      return val;
+    });
     db.prepare(`UPDATE todos SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(...values, id);
   },
   delete: (id: number): void => {

@@ -78,14 +78,15 @@ export default function HomePage() {
       });
 
       if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Failed to update todo:', res.status, errorData);
         // Revert on failure
         setTodos(todos.map(t => t.id === id ? { ...t, completed: completed } : t));
-        console.error('Failed to update todo');
       }
     } catch (error) {
+      console.error('Failed to update todo:', error);
       // Revert on error
       setTodos(todos.map(t => t.id === id ? { ...t, completed: completed } : t));
-      console.error('Failed to update todo:', error);
     }
   }
 

@@ -40,7 +40,8 @@ export default function LoginPage() {
     }
   }
 
-  async function handleLogin() {
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
     if (!username.trim()) {
       setError('Username is required');
       return;

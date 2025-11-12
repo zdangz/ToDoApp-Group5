@@ -86,7 +86,30 @@ When all fields above are filled, output just this Markdown with all placeholder
 {{User Journey}}
 
 ## 6. Technical Considerations
-{{Technical Considerations}}
+**Platforms:** Web application built with Next.js 16 (App Router), React 19, deployed to Railway or Vercel. Browser requirements: Modern browsers with WebAuthn support (Chrome 67+, Firefox 60+, Safari 13+, Edge 18+).
+
+**Database:** SQLite via better-sqlite3 (synchronous operations), stored as single file (todos.db). Database schema includes users, authenticators, todos, subtasks, tags, templates, and holidays tables with proper CASCADE delete relationships.
+
+**Authentication:** WebAuthn/Passkeys only (no traditional passwords) using @simplewebauthn/server and @simplewebauthn/browser. JWT sessions stored in HTTP-only cookies with 7-day expiry. Middleware protects authenticated routes.
+
+**Key Integrations:**
+- Browser Notification API for todo reminders (requires user permission)
+- Singapore timezone handling (Asia/Singapore) for all date/time operations via custom timezone utilities
+- Holiday API integration for Singapore public holidays
+
+**Data & Privacy:**
+- All user data stored locally in SQLite database file
+- Session tokens use JWT with HTTP-only cookies
+- WebAuthn credentials stored with base64url encoding
+- No external data transmission except authentication challenges
+- Timezone-aware calculations for recurring tasks and reminders
+
+**Development & Testing:**
+- TypeScript for type safety
+- Tailwind CSS 4 for styling with dark mode support
+- Playwright for E2E testing with virtual WebAuthn authenticators
+- ESLint for code quality
+- All API routes follow RESTful patterns with session validation
 
 ## 7. Risks & Dependencies
 {{Risks & Dependencies}}

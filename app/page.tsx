@@ -11,6 +11,12 @@ export default function HomePage() {
   const [dueDate, setDueDate] = useState('');
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [reminderMinutes, setReminderMinutes] = useState<number | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     fetchTodos();
@@ -53,12 +59,16 @@ export default function HomePage() {
           title: title.trim(),
           priority,
           due_date: dueDate || null,
+          is_recurring: isRecurring,
+          reminder_minutes: reminderMinutes,
         }),
       });
 
       if (res.ok) {
         setTitle('');
         setDueDate('');
+        setIsRecurring(false);
+        setReminderMinutes(null);
         fetchTodos();
       }
     } catch (error) {
@@ -117,8 +127,15 @@ export default function HomePage() {
     low: 'bg-blue-500',
   };
 
-  const activeTodos = todos.filter(t => !t.completed);
-  const completedTodos = todos.filter(t => t.completed);
+  // Filter todos based on search and priority
+  const filteredTodos = todos.filter(todo => {
+    const matchesSearch = todo.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesPriority = priorityFilter === 'all' || todo.priority === priorityFilter;
+    return matchesSearch && matchesPriority;
+  });
+
+  const activeTodos = filteredTodos.filter(t => !t.completed);
+  const completedTodos = filteredTodos.filter(t => t.completed);
 
   if (loading) {
     return (
@@ -129,122 +146,286 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="flex justify-between items-center mb-8">
+    <div className="min-h-screen py-8" style={{ 
+      backgroundColor: '#e8ecf1',
+      fontFamily: "'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    }}>
+      <div className="max-w-6xl mx-auto px-4">
+        {/* Header with Navigation */}
+        <div className="flex justify-between items-start mb-6">
           <div>
-            <h1 className="text-3xl font-semibold text-gray-800 dark:text-white">Todo App</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">Welcome, {username}!</p>
+            <h1 className="text-4xl font-bold mb-1" style={{ color: '#1a202c' }}>Todo App</h1>
+            <p className="text-base" style={{ color: '#718096' }}>Welcome, {username}</p>
           </div>
-          <button
-            onClick={logout}
-            className="px-5 py-2.5 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors"
-          >
-            Logout
-          </button>
-        </div>
-
-        {/* Add Todo Form */}
-        <form onSubmit={addTodo} className="mb-8 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-100 dark:border-gray-700">
-          <div className="flex gap-4 flex-wrap">
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="What needs to be done?"
-              className="flex-1 min-w-[200px] px-4 py-2.5 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-            <select
-              value={priority}
-              onChange={(e) => setPriority(e.target.value as any)}
-              className="px-4 py-2.5 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
+          <div className="flex gap-3">
+            <button className="px-4 py-2 bg-white rounded-lg font-medium transition-all hover:shadow-md" style={{ color: '#4a5568' }}>
+              📊 Data
+            </button>
+            <button 
+              onClick={() => router.push('/calendar')}
+              className="px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md"
+              style={{ backgroundColor: '#9333ea' }}
             >
-              <option value="low">Low Priority</option>
-              <option value="medium">Medium Priority</option>
-              <option value="high">High Priority</option>
-            </select>
-            <input
-              type="datetime-local"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="px-4 py-2.5 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+              📅 Calendar
+            </button>
+            <button className="px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md" style={{ backgroundColor: '#3b82f6' }}>
+              📋 Templates
+            </button>
+            <button className="px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md" style={{ backgroundColor: '#f97316' }}>
+              🔔
+            </button>
             <button
-              type="submit"
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm hover:shadow-md"
+              onClick={logout}
+              className="px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md"
+              style={{ backgroundColor: '#6b7280' }}
             >
-              Add Task
+              Logout
             </button>
           </div>
-        </form>
-
-        {/* Active Todos */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">Active Tasks ({activeTodos.length})</h2>
-          <div className="space-y-3">
-            {activeTodos.map((todo) => (
-              <div
-                key={todo.id}
-                className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 dark:border-gray-700 flex items-center gap-4"
-              >
-                <input
-                  type="checkbox"
-                  checked={todo.completed}
-                  onChange={() => toggleTodo(todo.id, todo.completed)}
-                  className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${priorityColors[todo.priority as keyof typeof priorityColors]}`} />
-                    <span className="font-medium text-gray-800 dark:text-gray-100">{todo.title}</span>
-                  </div>
-                  {todo.due_date && (
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      Due: {new Date(todo.due_date).toLocaleString()}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => deleteTodo(todo.id)}
-                  className="px-3 py-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg font-medium transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-            ))}
-          </div>
         </div>
 
-        {/* Completed Todos */}
-        {completedTodos.length > 0 && (
-          <div>
-            <h2 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">Completed Tasks ({completedTodos.length})</h2>
+        {/* Main Content Card */}
+        <div className="bg-white rounded-2xl shadow-lg p-8">
+          {/* Add Todo Form */}
+          <form onSubmit={addTodo} className="mb-6">
+            <div className="flex gap-3 mb-4">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Add a new todo..."
+                className="flex-1 px-4 py-2.5 border rounded-lg transition-all"
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderColor: '#e2e8f0',
+                  color: '#2d3748'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#4285f4';
+                  e.target.style.outline = 'none';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(66, 133, 244, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e2e8f0';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as any)}
+                className="px-4 py-2.5 border rounded-lg font-medium"
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderColor: '#e2e8f0',
+                  color: '#2d3748'
+                }}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+              <input
+                type="datetime-local"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="px-4 py-2.5 border rounded-lg"
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderColor: '#e2e8f0',
+                  color: '#2d3748'
+                }}
+              />
+              <button
+                type="submit"
+                className="px-8 py-2.5 rounded-lg font-medium text-white transition-all hover:shadow-md"
+                style={{ backgroundColor: '#3b82f6' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+              >
+                Add
+              </button>
+            </div>
+
+            {/* Additional Options */}
+            <div className="flex gap-4 items-center text-sm">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                  className="w-4 h-4 rounded"
+                />
+                <span style={{ color: '#4a5568' }}>Repeat</span>
+              </label>
+
+              <label className="flex items-center gap-2" style={{ color: '#4a5568' }}>
+                Reminder:
+                <select
+                  value={reminderMinutes || ''}
+                  onChange={(e) => setReminderMinutes(e.target.value ? Number(e.target.value) : null)}
+                  className="px-3 py-1.5 border rounded-lg"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    color: '#2d3748'
+                  }}
+                >
+                  <option value="">None</option>
+                  <option value="15">15 minutes before</option>
+                  <option value="30">30 minutes before</option>
+                  <option value="60">1 hour before</option>
+                  <option value="1440">1 day before</option>
+                </select>
+              </label>
+
+              <label className="flex items-center gap-2" style={{ color: '#4a5568' }}>
+                Use Template:
+                <select
+                  value={selectedTemplate}
+                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                  className="px-3 py-1.5 border rounded-lg"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    color: '#2d3748'
+                  }}
+                >
+                  <option value="">Select a template...</option>
+                </select>
+              </label>
+            </div>
+          </form>
+
+          {/* Search and Filters */}
+          <div className="mb-6">
+            <div className="relative mb-4">
+              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search todos and subtasks..."
+                className="w-full pl-10 pr-4 py-3 border rounded-lg"
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderColor: '#e2e8f0',
+                  color: '#2d3748'
+                }}
+              />
+            </div>
+
+            <div className="flex gap-3 items-center">
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="px-4 py-2 border rounded-lg font-medium"
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderColor: '#e2e8f0',
+                  color: '#2d3748'
+                }}
+              >
+                <option value="all">All Priorities</option>
+                <option value="high">High Priority</option>
+                <option value="medium">Medium Priority</option>
+                <option value="low">Low Priority</option>
+              </select>
+
+              <button
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="px-4 py-2 border rounded-lg font-medium transition-all"
+                style={{
+                  backgroundColor: '#f3f4f6',
+                  borderColor: '#e2e8f0',
+                  color: '#4a5568'
+                }}
+              >
+                ▶ Advanced
+              </button>
+            </div>
+          </div>
+
+          {/* Todos List */}
+          {activeTodos.length === 0 && (
+            <div className="text-center py-16" style={{ color: '#9ca3af' }}>
+              <p className="text-lg">No todos yet. Add one above!</p>
+            </div>
+          )}
+
+          {activeTodos.length > 0 && (
             <div className="space-y-3">
-              {completedTodos.map((todo) => (
+              {activeTodos.map((todo) => (
                 <div
                   key={todo.id}
-                  className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4 opacity-70"
+                  className="flex items-center gap-4 p-4 border rounded-lg hover:shadow-md transition-all"
+                  style={{ borderColor: '#e2e8f0', backgroundColor: '#ffffff' }}
                 >
                   <input
                     type="checkbox"
                     checked={todo.completed}
                     onChange={() => toggleTodo(todo.id, todo.completed)}
-                    className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    className="w-5 h-5 rounded cursor-pointer"
+                    style={{ accentColor: '#3b82f6' }}
                   />
                   <div className="flex-1">
-                    <span className="line-through text-gray-600 dark:text-gray-400">{todo.title}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${priorityColors[todo.priority as keyof typeof priorityColors]}`} />
+                      <span className="font-medium" style={{ color: '#1a202c' }}>{todo.title}</span>
+                    </div>
+                    {todo.due_date && (
+                      <span className="text-sm" style={{ color: '#9ca3af' }}>
+                        Due: {new Date(todo.due_date).toLocaleString()}
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={() => deleteTodo(todo.id)}
-                    className="px-3 py-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg font-medium transition-colors"
+                    className="px-3 py-1.5 rounded-lg font-medium transition-all hover:bg-red-50"
+                    style={{ color: '#ef4444' }}
                   >
                     Delete
                   </button>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Completed Todos */}
+          {completedTodos.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold mb-3" style={{ color: '#4a5568' }}>
+                Completed ({completedTodos.length})
+              </h3>
+              <div className="space-y-3">
+                {completedTodos.map((todo) => (
+                  <div
+                    key={todo.id}
+                    className="flex items-center gap-4 p-4 border rounded-lg opacity-60"
+                    style={{ borderColor: '#e2e8f0', backgroundColor: '#f9fafb' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={todo.completed}
+                      onChange={() => toggleTodo(todo.id, todo.completed)}
+                      className="w-5 h-5 rounded cursor-pointer"
+                      style={{ accentColor: '#3b82f6' }}
+                    />
+                    <div className="flex-1">
+                      <span className="line-through" style={{ color: '#9ca3af' }}>{todo.title}</span>
+                    </div>
+                    <button
+                      onClick={() => deleteTodo(todo.id)}
+                      className="px-3 py-1.5 rounded-lg font-medium transition-all hover:bg-red-50"
+                      style={{ color: '#ef4444' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

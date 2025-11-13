@@ -298,4 +298,28 @@ export const todoTagDB = {
   },
 };
 
+export const holidayDB = {
+  create: (date: string, name: string, year: number): Holiday => {
+    const stmt = db.prepare('INSERT INTO holidays (date, name, year) VALUES (?, ?, ?)');
+    const result = stmt.run(date, name, year);
+    return holidayDB.getById(Number(result.lastInsertRowid))!;
+  },
+  getById: (id: number): Holiday | undefined => {
+    return db.prepare('SELECT * FROM holidays WHERE id = ?').get(id) as Holiday | undefined;
+  },
+  getByYear: (year: number): Holiday[] => {
+    return db.prepare('SELECT * FROM holidays WHERE year = ? ORDER BY date ASC').all(year) as Holiday[];
+  },
+  getByDateRange: (startDate: string, endDate: string): Holiday[] => {
+    return db.prepare('SELECT * FROM holidays WHERE date >= ? AND date <= ? ORDER BY date ASC')
+      .all(startDate, endDate) as Holiday[];
+  },
+  list: (): Holiday[] => {
+    return db.prepare('SELECT * FROM holidays ORDER BY date DESC').all() as Holiday[];
+  },
+  deleteByYear: (year: number): void => {
+    db.prepare('DELETE FROM holidays WHERE year = ?').run(year);
+  },
+};
+
 export default db;

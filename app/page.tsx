@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
@@ -16,11 +16,17 @@ export default function HomePage() {
   const [reminderMinutes, setReminderMinutes] = useState<number | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showDataMenu, setShowDataMenu] = useState(false);
   const [importError, setImportError] = useState('');
   const [importSuccess, setImportSuccess] = useState('');
+  
+  // Advanced filter states
+  const [completionFilter, setCompletionFilter] = useState('all'); // 'all', 'pending', 'completed'
+  const [dueDateFrom, setDueDateFrom] = useState('');
+  const [dueDateTo, setDueDateTo] = useState('');
 
   useEffect(() => {
     fetchTodos();
@@ -37,6 +43,15 @@ export default function HomePage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showDataMenu]);
+  
+  // Debounce search query (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   async function checkAuth() {
     const res = await fetch('/api/auth/me');
@@ -276,15 +291,54 @@ export default function HomePage() {
     low: 'bg-blue-500',
   };
 
-  // Filter todos based on search and priority
+  // Filter todos based on search, priority, and advanced filters
   const filteredTodos = todos.filter(todo => {
-    const matchesSearch = todo.title.toLowerCase().includes(searchQuery.toLowerCase());
+    // Search filter (case-insensitive, matches title)
+    const matchesSearch = todo.title.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+    
+    // Priority filter
     const matchesPriority = priorityFilter === 'all' || todo.priority === priorityFilter;
-    return matchesSearch && matchesPriority;
+    
+    // Completion status filter (advanced)
+    let matchesCompletion = true;
+    if (completionFilter === 'pending') {
+      matchesCompletion = !todo.completed;
+    } else if (completionFilter === 'completed') {
+      matchesCompletion = todo.completed;
+    }
+    
+    // Due date range filter (advanced)
+    let matchesDueDate = true;
+    if (dueDateFrom && todo.due_date) {
+      matchesDueDate = matchesDueDate && new Date(todo.due_date) >= new Date(dueDateFrom);
+    }
+    if (dueDateTo && todo.due_date) {
+      matchesDueDate = matchesDueDate && new Date(todo.due_date) <= new Date(dueDateTo + 'T23:59:59');
+    }
+    
+    return matchesSearch && matchesPriority && matchesCompletion && matchesDueDate;
   });
 
   const activeTodos = filteredTodos.filter(t => !t.completed);
   const completedTodos = filteredTodos.filter(t => t.completed);
+  
+  // Count active filters
+  const activeFiltersCount = [
+    debouncedSearchQuery !== '',
+    priorityFilter !== 'all',
+    completionFilter !== 'all',
+    dueDateFrom !== '',
+    dueDateTo !== ''
+  ].filter(Boolean).length;
+  
+  // Clear all filters function
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setPriorityFilter('all');
+    setCompletionFilter('all');
+    setDueDateFrom('');
+    setDueDateTo('');
+  };
 
   if (loading) {
     return (
@@ -558,22 +612,127 @@ export default function HomePage() {
 
               <button
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="px-4 py-2 border rounded-lg font-medium transition-all"
+                className="px-4 py-2 border rounded-lg font-medium transition-all flex items-center gap-2"
                 style={{
-                  backgroundColor: '#f3f4f6',
+                  backgroundColor: showAdvanced ? '#3b82f6' : '#f3f4f6',
                   borderColor: '#e2e8f0',
-                  color: '#4a5568'
+                  color: showAdvanced ? '#ffffff' : '#4a5568'
                 }}
               >
-                ▶ Advanced
+                <span style={{ transform: showAdvanced ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
+                Advanced
               </button>
+              
+              {activeFiltersCount > 0 && (
+                <button
+                  onClick={clearAllFilters}
+                  className="px-4 py-2 border rounded-lg font-medium transition-all hover:bg-red-50"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#ef4444',
+                    color: '#ef4444'
+                  }}
+                >
+                  Clear Filters ({activeFiltersCount})
+                </button>
+              )}
             </div>
+            
+            {/* Advanced Filters Panel */}
+            {showAdvanced && (
+              <div className="mt-4 p-6 border rounded-lg" style={{ backgroundColor: '#f9fafb', borderColor: '#e2e8f0' }}>
+                <h3 className="text-lg font-semibold mb-4" style={{ color: '#1a202c' }}>Advanced Filters</h3>
+                
+                {/* Completion Status */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2" style={{ color: '#4a5568' }}>
+                    Completion Status
+                  </label>
+                  <select
+                    value={completionFilter}
+                    onChange={(e) => setCompletionFilter(e.target.value)}
+                    className="w-full px-4 py-2.5 border rounded-lg font-medium"
+                    style={{
+                      backgroundColor: '#ffffff',
+                      borderColor: '#e2e8f0',
+                      color: '#2d3748'
+                    }}
+                  >
+                    <option value="all">All Todos</option>
+                    <option value="pending">Pending Only</option>
+                    <option value="completed">Completed Only</option>
+                  </select>
+                </div>
+                
+                {/* Due Date Range */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: '#4a5568' }}>
+                      Due Date From
+                    </label>
+                    <input
+                      type="date"
+                      value={dueDateFrom}
+                      onChange={(e) => setDueDateFrom(e.target.value)}
+                      className="w-full px-4 py-2.5 border rounded-lg"
+                      style={{
+                        backgroundColor: '#ffffff',
+                        borderColor: '#e2e8f0',
+                        color: '#2d3748'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: '#4a5568' }}>
+                      Due Date To
+                    </label>
+                    <input
+                      type="date"
+                      value={dueDateTo}
+                      onChange={(e) => setDueDateTo(e.target.value)}
+                      className="w-full px-4 py-2.5 border rounded-lg"
+                      style={{
+                        backgroundColor: '#ffffff',
+                        borderColor: '#e2e8f0',
+                        color: '#2d3748'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+          
+          {/* Filter Summary */}
+          {activeFiltersCount > 0 && (
+            <div className="mb-4 p-3 rounded-lg flex items-center justify-between" style={{ backgroundColor: '#dbeafe', color: '#1e40af' }}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium">{filteredTodos.length} result(s) found with filters:</span>
+                {debouncedSearchQuery && <span className="px-2 py-1 bg-white rounded text-sm">Search: "{debouncedSearchQuery}"</span>}
+                {priorityFilter !== 'all' && <span className="px-2 py-1 bg-white rounded text-sm">Priority: {priorityFilter}</span>}
+                {completionFilter !== 'all' && <span className="px-2 py-1 bg-white rounded text-sm">Status: {completionFilter}</span>}
+                {dueDateFrom && <span className="px-2 py-1 bg-white rounded text-sm">From: {dueDateFrom}</span>}
+                {dueDateTo && <span className="px-2 py-1 bg-white rounded text-sm">To: {dueDateTo}</span>}
+              </div>
+            </div>
+          )}
 
           {/* Todos List */}
-          {activeTodos.length === 0 && (
+          {activeTodos.length === 0 && completedTodos.length === 0 && (
             <div className="text-center py-16" style={{ color: '#9ca3af' }}>
-              <p className="text-lg">No todos yet. Add one above!</p>
+              {activeFiltersCount > 0 ? (
+                <>
+                  <p className="text-lg mb-2">No todos match your filters</p>
+                  <button
+                    onClick={clearAllFilters}
+                    className="text-blue-500 hover:underline"
+                  >
+                    Clear all filters
+                  </button>
+                </>
+              ) : (
+                <p className="text-lg">No todos yet. Add one above!</p>
+              )}
             </div>
           )}
 

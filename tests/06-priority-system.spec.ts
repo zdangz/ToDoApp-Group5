@@ -134,9 +134,9 @@ test.describe('Priority System', () => {
     // Wait for all todos to be visible
     await page.waitForTimeout(500);
 
-    // Select high priority filter
-    // Find the priority filter dropdown (not the create form dropdown)
-    const filterSelect = page.locator('select[class*="px-4"]');
+    // Select high priority filter (find the filter dropdown, not the create form dropdown)
+    // The filter dropdown is after the search input
+    const filterSelect = page.locator('select').nth(1);  // Second select on page is the filter
     await filterSelect.selectOption('high');
 
     // Wait for filter to apply
@@ -161,7 +161,7 @@ test.describe('Priority System', () => {
     await page.waitForTimeout(200);
 
     // Select medium priority filter
-    const filterSelect = page.locator('select[class*="px-4"]');
+    const filterSelect = page.locator('select').nth(1);  // Second select on page is the filter
     await filterSelect.selectOption('medium');
 
     // Wait for filter to apply
@@ -185,7 +185,7 @@ test.describe('Priority System', () => {
     await page.waitForTimeout(200);
 
     // Select low priority filter
-    const filterSelect = page.locator('select[class*="px-4"]');
+    const filterSelect = page.locator('select').nth(1);  // Second select on page is the filter
     await filterSelect.selectOption('low');
 
     // Wait for filter to apply
@@ -213,7 +213,7 @@ test.describe('Priority System', () => {
     await page.click('button:has-text("Add")');
 
     // Select "all" priority filter
-    const filterSelect = page.locator('select[class*="px-4"]');
+    const filterSelect = page.locator('select').nth(1);  // Second select on page is the filter
     await filterSelect.selectOption('all');
 
     // Wait for filter to apply
@@ -271,9 +271,11 @@ test.describe('Priority System', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Verify todo still has high priority
+    // Verify todo still exists and has high priority
     await expect(page.locator('text=Persistent high priority')).toBeVisible();
-    await expect(page.locator('text=high')).toBeVisible();
+    
+    // Verify high priority badge exists (look for badge with class, not just text)
+    await expect(page.locator('span.rounded:has-text("High")')).toBeVisible();
   });
 
   test('should allow multiple todos with the same priority', async ({ page }) => {
@@ -308,7 +310,7 @@ test.describe('Priority System', () => {
     await page.waitForTimeout(350); // Wait for debounce
 
     // Filter by high priority
-    const filterSelect = page.locator('select[class*="px-4"]');
+    const filterSelect = page.locator('select').nth(1);  // Second select on page is the filter
     await filterSelect.selectOption('high');
     await page.waitForTimeout(300);
 

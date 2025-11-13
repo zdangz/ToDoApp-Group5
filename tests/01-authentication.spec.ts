@@ -3,8 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Authentication', () => {
   test('should register a new user', async ({ page, context }) => {
     // Use API to register (since WebAuthn requires user interaction)
+    const username = `newuser-auth-test-${Date.now()}-${Math.random()}`;
     const response = await context.request.post('http://localhost:3000/api/auth/register', {
-      data: { username: 'newuser-auth-test' }
+      data: { username }
     });
 
     expect(response.ok()).toBeTruthy();
@@ -21,8 +22,9 @@ test.describe('Authentication', () => {
 
   test('should login an existing user', async ({ page, context }) => {
     // First register a user via API
+    const username = `existinguser-auth-test-${Date.now()}-${Math.random()}`;
     await context.request.post('http://localhost:3000/api/auth/register', {
-      data: { username: 'existinguser-auth-test' }
+      data: { username }
     });
 
     // Clear cookies to simulate logout
@@ -30,7 +32,7 @@ test.describe('Authentication', () => {
 
     // Now login via API
     const loginResponse = await context.request.post('http://localhost:3000/api/auth/login', {
-      data: { username: 'existinguser-auth-test' }
+      data: { username }
     });
 
     expect(loginResponse.ok()).toBeTruthy();
@@ -41,7 +43,7 @@ test.describe('Authentication', () => {
   });
 
   test('should show error for duplicate username registration', async ({ context }) => {
-    const username = 'duplicate-user-test';
+    const username = `duplicate-user-test-${Date.now()}-${Math.random()}`;
 
     // Register first time via API
     const firstResponse = await context.request.post('http://localhost:3000/api/auth/register', {
@@ -75,8 +77,9 @@ test.describe('Authentication', () => {
 
   test('should logout and clear session', async ({ page, context }) => {
     // Register and login via API
+    const username = `logout-test-user-${Date.now()}-${Math.random()}`;
     await context.request.post('http://localhost:3000/api/auth/register', {
-      data: { username: 'logout-test-user' }
+      data: { username }
     });
 
     // Go to home page - should be logged in
@@ -118,8 +121,9 @@ test.describe('Authentication', () => {
 
   test('should maintain session after page refresh', async ({ page, context }) => {
     // Register via API
+    const username = `refresh-test-user-${Date.now()}-${Math.random()}`;
     await context.request.post('http://localhost:3000/api/auth/register', {
-      data: { username: 'refresh-test-user' }
+      data: { username }
     });
 
     // Go to home page

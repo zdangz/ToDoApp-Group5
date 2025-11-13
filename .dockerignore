@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+.next
+.env
+.env.*
+!.env.example
+todos.db
+todos.db-shm
+todos.db-wal
+.git
+.gitignore
+README.md
+*.md
+tests
+.vscode
+.DS_Store

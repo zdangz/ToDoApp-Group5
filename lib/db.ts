@@ -322,4 +322,34 @@ export const holidayDB = {
   },
 };
 
+export const templateDB = {
+  create: (userId: number, name: string, todoData: string, subtasksData: string | null, description?: string, category?: string): Template => {
+    const stmt = db.prepare(`
+      INSERT INTO templates (user_id, name, description, category, todo_data, subtasks_data)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(userId, name, description || '', category || '', todoData, subtasksData || '[]');
+    return templateDB.getById(Number(result.lastInsertRowid))!;
+  },
+  getById: (id: number): Template | undefined => {
+    return db.prepare('SELECT * FROM templates WHERE id = ?').get(id) as Template | undefined;
+  },
+  listByUserId: (userId: number): Template[] => {
+    return db.prepare('SELECT * FROM templates WHERE user_id = ? ORDER BY created_at DESC')
+      .all(userId) as Template[];
+  },
+  listByCategory: (userId: number, category: string): Template[] => {
+    return db.prepare('SELECT * FROM templates WHERE user_id = ? AND category = ? ORDER BY created_at DESC')
+      .all(userId, category) as Template[];
+  },
+  update: (id: number, data: Partial<Template>): void => {
+    const fields = Object.keys(data).filter(k => k !== 'id').map(k => `${k} = ?`).join(', ');
+    const values = Object.keys(data).filter(k => k !== 'id').map(k => (data as any)[k]);
+    db.prepare(`UPDATE templates SET ${fields} WHERE id = ?`).run(...values, id);
+  },
+  delete: (id: number): void => {
+    db.prepare('DELETE FROM templates WHERE id = ?').run(id);
+  },
+};
+
 export default db;

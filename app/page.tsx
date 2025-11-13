@@ -32,9 +32,19 @@ export default function HomePage() {
   const [expandedTodos, setExpandedTodos] = useState<Set<number>>(new Set());
   const [subtasks, setSubtasks] = useState<{ [todoId: number]: any[] }>({});
   const [newSubtaskTitle, setNewSubtaskTitle] = useState<{ [todoId: number]: string }>({});
+  
+  // Template state
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+  const [templateCategory, setTemplateCategory] = useState('');
+  const [currentTodoForTemplate, setCurrentTodoForTemplate] = useState<any>(null);
 
   useEffect(() => {
     fetchTodos();
+    fetchTemplates();
     checkAuth();
 
     // Close dropdown when clicking outside
@@ -289,6 +299,110 @@ export default function HomePage() {
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
     return { completed, total, percentage };
   }
+  
+  // Template functions
+  async function fetchTemplates() {
+    try {
+      const res = await fetch('/api/templates');
+      if (res.ok) {
+        const data = await res.json();
+        setTemplates(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch templates:', error);
+    }
+  }
+  
+  async function openSaveTemplateModal() {
+    if (!title.trim()) {
+      alert('Please enter a todo title first');
+      return;
+    }
+    
+    setCurrentTodoForTemplate({
+      title,
+      priority,
+      due_date: dueDate,
+      is_recurring: isRecurring,
+      recurrence_pattern: recurrencePattern,
+      reminder_minutes: reminderMinutes,
+    });
+    setShowSaveTemplateModal(true);
+  }
+  
+  async function saveAsTemplate() {
+    if (!templateName.trim()) {
+      alert('Please enter a template name');
+      return;
+    }
+    
+    try {
+      const res = await fetch('/api/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: templateName.trim(),
+          description: templateDescription.trim(),
+          category: templateCategory.trim(),
+          todo_data: currentTodoForTemplate,
+          subtasks_data: [], // Can be extended later to include subtasks
+        }),
+      });
+      
+      if (res.ok) {
+        alert('Template saved successfully!');
+        setShowSaveTemplateModal(false);
+        setTemplateName('');
+        setTemplateDescription('');
+        setTemplateCategory('');
+        fetchTemplates();
+      } else {
+        const error = await res.json();
+        alert('Failed to save template: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to save template:', error);
+      alert('Error saving template');
+    }
+  }
+  
+  async function useTemplate(templateId: number) {
+    try {
+      const res = await fetch(`/api/templates/${templateId}/use`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      
+      if (res.ok) {
+        setShowTemplateModal(false);
+        fetchTodos();
+        alert('Todo created from template!');
+      } else {
+        const error = await res.json();
+        alert('Failed to use template: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to use template:', error);
+      alert('Error using template');
+    }
+  }
+  
+  async function deleteTemplate(templateId: number) {
+    if (!confirm('Delete this template?')) return;
+    
+    try {
+      const res = await fetch(`/api/templates/${templateId}`, {
+        method: 'DELETE',
+      });
+      
+      if (res.ok) {
+        fetchTemplates();
+      }
+    } catch (error) {
+      console.error('Failed to delete template:', error);
+    }
+  }
 
   async function exportJSON() {
     try {
@@ -537,7 +651,11 @@ export default function HomePage() {
             >
               📅 Calendar
             </button>
-            <button className="px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md" style={{ backgroundColor: '#3b82f6' }}>
+            <button 
+              onClick={() => setShowTemplateModal(true)}
+              className="px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md" 
+              style={{ backgroundColor: '#3b82f6' }}
+            >
               📋 Templates
             </button>
             <button className="px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md" style={{ backgroundColor: '#f97316' }}>
@@ -699,6 +817,19 @@ export default function HomePage() {
                   <option value="">Select a template...</option>
                 </select>
               </label>
+
+              {title && (
+                <button
+                  type="button"
+                  onClick={openSaveTemplateModal}
+                  className="px-4 py-1.5 rounded-lg font-medium text-white transition-all hover:shadow-md flex items-center gap-2"
+                  style={{ backgroundColor: '#10b981' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+                >
+                  💾 Save as Template
+                </button>
+              )}
             </div>
           </form>
 
@@ -1090,6 +1221,248 @@ export default function HomePage() {
           )}
         </div>
       </div>
+
+      {/* Save Template Modal */}
+      {showSaveTemplateModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowSaveTemplateModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-bold mb-6" style={{ color: '#1e293b' }}>
+              Save as Template
+            </h2>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#475569' }}>
+                  Template Name *
+                </label>
+                <input
+                  type="text"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="e.g., Weekly Planning"
+                  className="w-full px-4 py-2.5 border rounded-lg"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    color: '#2d3748'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#475569' }}>
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={templateDescription}
+                  onChange={(e) => setTemplateDescription(e.target.value)}
+                  placeholder="Describe when to use this template..."
+                  rows={3}
+                  className="w-full px-4 py-2.5 border rounded-lg resize-none"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    color: '#2d3748'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#475569' }}>
+                  Category (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={templateCategory}
+                  onChange={(e) => setTemplateCategory(e.target.value)}
+                  placeholder="e.g., Work, Personal, Planning"
+                  className="w-full px-4 py-2.5 border rounded-lg"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    color: '#2d3748'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: '#f0f9ff', borderLeft: '4px solid #3b82f6' }}>
+              <p className="text-sm font-medium mb-2" style={{ color: '#1e40af' }}>
+                Template will save:
+              </p>
+              <ul className="text-sm space-y-1" style={{ color: '#475569' }}>
+                <li>• Title: {title}</li>
+                <li>• Priority: {priority}</li>
+                {isRecurring && <li>• Recurrence: {recurrencePattern}</li>}
+                {reminderMinutes && <li>• Reminder: {reminderMinutes} minutes before</li>}
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowSaveTemplateModal(false);
+                  setTemplateName('');
+                  setTemplateDescription('');
+                  setTemplateCategory('');
+                }}
+                className="flex-1 px-6 py-2.5 rounded-lg font-medium border transition-all"
+                style={{
+                  borderColor: '#e2e8f0',
+                  color: '#64748b',
+                  backgroundColor: '#ffffff'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => saveAsTemplate()}
+                disabled={!templateName}
+                className="flex-1 px-6 py-2.5 rounded-lg font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: '#3b82f6' }}
+              >
+                Save Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Templates List Modal */}
+      {showTemplateModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowTemplateModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl p-8 max-w-3xl w-full mx-4 max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold" style={{ color: '#1e293b' }}>
+                Templates
+              </h2>
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {templates.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📋</div>
+                <p className="text-lg mb-2" style={{ color: '#64748b' }}>
+                  No templates yet
+                </p>
+                <p className="text-sm" style={{ color: '#94a3b8' }}>
+                  Create a todo and save it as a template!
+                </p>
+                <button
+                  onClick={() => setShowTemplateModal(false)}
+                  className="mt-6 px-6 py-2.5 rounded-lg font-medium text-white transition-all"
+                  style={{ backgroundColor: '#3b82f6' }}
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {templates.map((template) => {
+                  const todoData = typeof template.todo_data === 'string' 
+                    ? JSON.parse(template.todo_data) 
+                    : template.todo_data;
+                  const subtasksData = template.subtasks_data 
+                    ? (typeof template.subtasks_data === 'string' 
+                        ? JSON.parse(template.subtasks_data) 
+                        : template.subtasks_data)
+                    : [];
+
+                  return (
+                    <div
+                      key={template.id}
+                      className="border rounded-xl p-5 transition-all hover:shadow-md"
+                      style={{ borderColor: '#e2e8f0' }}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold mb-1" style={{ color: '#1e293b' }}>
+                            {template.name}
+                          </h3>
+                          {template.description && (
+                            <p className="text-sm mb-2" style={{ color: '#64748b' }}>
+                              {template.description}
+                            </p>
+                          )}
+                          {template.category && (
+                            <span
+                              className="inline-block px-3 py-1 rounded-full text-xs font-medium"
+                              style={{ backgroundColor: '#dbeafe', color: '#1e40af' }}
+                            >
+                              {template.category}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: '#f8fafc' }}>
+                        <p className="text-xs font-medium mb-2" style={{ color: '#64748b' }}>
+                          PREVIEW:
+                        </p>
+                        <div className="space-y-1 text-sm" style={{ color: '#475569' }}>
+                          <p>• Title: {todoData.title}</p>
+                          <p>• Priority: {todoData.priority}</p>
+                          {todoData.recurrence_pattern && (
+                            <p>• Recurrence: {todoData.recurrence_pattern}</p>
+                          )}
+                          {todoData.reminder_minutes && (
+                            <p>• Reminder: {todoData.reminder_minutes} minutes before</p>
+                          )}
+                          {subtasksData.length > 0 && (
+                            <p>• Subtasks: {subtasksData.length} item(s)</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => useTemplate(template.id)}
+                          className="flex-1 px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md"
+                          style={{ backgroundColor: '#3b82f6' }}
+                        >
+                          Use Template
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete template "${template.name}"?`)) {
+                              deleteTemplate(template.id);
+                            }
+                          }}
+                          className="px-4 py-2 rounded-lg font-medium transition-all"
+                          style={{ 
+                            color: '#ef4444',
+                            backgroundColor: '#fef2f2',
+                            border: '1px solid #fee2e2'
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

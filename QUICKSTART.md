@@ -14,7 +14,14 @@
    
    Edit `.env` and set a secure JWT_SECRET (at least 32 characters).
 
-3. **Run development server:**
+3. **Seed Singapore holidays:**
+   ```bash
+   npm run seed-holidays
+   ```
+   
+   This populates 22 Singapore public holidays for 2025-2026.
+
+4. **Run development server:**
    ```bash
    npm run dev
    ```
@@ -72,3 +79,4 @@ The SQLite database (`todos.db`) is automatically created on first run.
 - `npm run build` - Build for production
 - `npm start` - Start production server
 - `npm run lint` - Run ESLint
+- `npm run seed-holidays` - Seed Singapore public holidays (2025-2026)

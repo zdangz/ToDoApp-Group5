@@ -1403,6 +1403,18 @@ export default function HomePage() {
                                 🔄 {todo.recurrence_pattern?.charAt(0).toUpperCase() + todo.recurrence_pattern?.slice(1)}
                               </span>
                             )}
+                            {todo.reminder_minutes && (
+                              <span 
+                                className="px-2 py-0.5 rounded text-xs font-medium"
+                                style={{ backgroundColor: '#fef3c7', color: '#d97706' }}
+                                title={`Reminder: ${todo.reminder_minutes} minutes before`}
+                              >
+                                🔔 {todo.reminder_minutes < 60 ? `${todo.reminder_minutes}m` : 
+                                    todo.reminder_minutes < 1440 ? `${Math.floor(todo.reminder_minutes / 60)}h` :
+                                    todo.reminder_minutes < 10080 ? `${Math.floor(todo.reminder_minutes / 1440)}d` :
+                                    `${Math.floor(todo.reminder_minutes / 10080)}w`}
+                              </span>
+                            )}
                             {/* Tag badges */}
                             {todoTags[todo.id] && todoTags[todo.id].map((tag: any) => (
                               <span
@@ -1600,6 +1612,18 @@ export default function HomePage() {
                             title={`Repeats ${todo.recurrence_pattern}`}
                           >
                             🔄 {todo.recurrence_pattern?.charAt(0).toUpperCase() + todo.recurrence_pattern?.slice(1)}
+                          </span>
+                        )}
+                        {todo.reminder_minutes && (
+                          <span 
+                            className="px-2 py-0.5 rounded text-xs font-medium"
+                            style={{ backgroundColor: '#fef3c7', color: '#d97706' }}
+                            title={`Reminder: ${todo.reminder_minutes} minutes before`}
+                          >
+                            🔔 {todo.reminder_minutes < 60 ? `${todo.reminder_minutes}m` : 
+                                todo.reminder_minutes < 1440 ? `${Math.floor(todo.reminder_minutes / 60)}h` :
+                                todo.reminder_minutes < 10080 ? `${Math.floor(todo.reminder_minutes / 1440)}d` :
+                                `${Math.floor(todo.reminder_minutes / 10080)}w`}
                           </span>
                         )}
                         {/* Tag badges */}

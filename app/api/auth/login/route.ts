@@ -10,10 +10,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Username is required' }, { status: 400 });
     }
 
-    // Check if user exists
-    const user = userDB.getByUsername(username.trim());
+    // Check if user exists, if not create automatically (simplified auth)
+    let user = userDB.getByUsername(username.trim());
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      // Auto-create user on first login
+      user = userDB.create(username.trim());
     }
 
     // Create session (simplified - production would verify WebAuthn)

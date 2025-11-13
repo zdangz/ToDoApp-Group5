@@ -80,10 +80,10 @@ export default function LoginPage() {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold mb-2" style={{ color: '#1a202c' }}>
-              Todo App
+              Welcome to Todo App
             </h1>
             <p className="text-base" style={{ color: '#718096' }}>
-              Sign in with your passkey
+              Enter your username to continue
             </p>
           </div>
 
@@ -159,7 +159,7 @@ export default function LoginPage() {
                   Signing in...
                 </span>
               ) : (
-                'Sign in with Passkey'
+                'Sign in'
               )}
             </button>
 
@@ -188,7 +188,7 @@ export default function LoginPage() {
             className="mt-8 p-4 rounded-lg text-sm leading-relaxed"
             style={{ backgroundColor: '#f5f5f5', color: '#4a5568' }}
           >
-            <strong className="font-semibold" style={{ color: '#2d3748' }}>Passkeys</strong> use your device&apos;s biometrics (fingerprint, face recognition) or PIN for secure authentication. No passwords needed!
+            <strong className="font-semibold" style={{ color: '#2d3748' }}>Simple Login</strong> - Just enter a username! First time users will be automatically registered. No password required for this demo.
           </div>
         </div>
       </div>

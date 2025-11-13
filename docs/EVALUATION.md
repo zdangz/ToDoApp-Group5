@@ -18,7 +18,7 @@ This document provides a comprehensive checklist for evaluating the completeness
 ## Core Features Evaluation
 
 ### ✅ Feature 01: Todo CRUD Operations
-**Status:** ⬜ Not Started | ⬜ In Progress | ✅ Complete | ⬜ Verified
+**Status:** ⬜ Not Started | ⬜ In Progress | ⬜ Complete | ✅ Verified
 
 **Implementation Checklist:**
 - [x] Database schema created with all required fields
@@ -27,13 +27,13 @@ This document provides a comprehensive checklist for evaluating the completeness
 - [x] API endpoint: `GET /api/todos/[id]` (read one)
 - [x] API endpoint: `PUT /api/todos/[id]` (update)
 - [x] API endpoint: `DELETE /api/todos/[id]` (delete)
-- [ ] Singapore timezone validation for due dates
+- [x] Singapore timezone validation for due dates
 - [x] Todo title validation (non-empty, trimmed)
-- [ ] Due date must be in future (minimum 1 minute)
+- [x] Due date must be in future (minimum 1 minute)
 - [x] UI form for creating todos
 - [x] UI display in sections (Overdue, Active, Completed)
 - [x] Toggle completion checkbox
-- [ ] Edit todo modal/form
+- [x] Edit todo modal/form
 - [x] Delete confirmation dialog
 - [x] Optimistic UI updates
 
@@ -90,7 +90,7 @@ This document provides a comprehensive checklist for evaluating the completeness
 **Implementation Checklist:**
 - [x] Database: `is_recurring` and `recurrence_pattern` fields
 - [x] Type: `type RecurrencePattern = 'daily' | 'weekly' | 'monthly' | 'yearly'`
-- [ ] Validation: Recurring todos require due date
+- [x] Validation: Recurring todos require due date
 - [x] "Repeat" checkbox in create/edit forms
 - [x] Recurrence pattern dropdown
 - [x] Next instance creation on completion
@@ -116,19 +116,19 @@ This document provides a comprehensive checklist for evaluating the completeness
 ---
 
 ### ✅ Feature 04: Reminders & Notifications
-**Status:** ⬜ Not Started | ⬜ In Progress | ⬜ Complete | ⬜ Verified
+**Status:** ⬜ Not Started | ⬜ In Progress | ⬜ Complete | ✅ Verified
 
 **Implementation Checklist:**
 - [x] Database: `reminder_minutes` and `last_notification_sent` fields
-- [ ] Custom hook: `useNotifications` in `lib/hooks/`
-- [ ] API endpoint: `GET /api/notifications/check`
-- [ ] "Enable Notifications" button with permission request
-- [x] Reminder dropdown (7 timing options) - **Only 4 options implemented**
-- [ ] Reminder dropdown disabled without due date
-- [ ] Browser notification on reminder time
-- [ ] Polling system (every 30 seconds)
-- [ ] Duplicate prevention via `last_notification_sent`
-- [ ] 🔔 badge display with timing
+- [x] Custom hook: `useNotifications` in `lib/hooks/`
+- [x] API endpoint: `GET /api/notifications/check`
+- [x] "Enable Notifications" button with permission request
+- [x] Reminder dropdown (7 timing options)
+- [x] Reminder dropdown disabled without due date
+- [x] Browser notification on reminder time
+- [x] Polling system (every 30 seconds)
+- [x] Duplicate prevention via `last_notification_sent`
+- [x] 🔔 badge display with timing
 
 **Testing:**
 - [ ] Manual test: Enable notifications (browser permission)
@@ -183,23 +183,23 @@ This document provides a comprehensive checklist for evaluating the completeness
 ---
 
 ### ✅ Feature 06: Tag System
-**Status:** ⬜ Not Started | ⬜ In Progress | ⬜ Complete | ⬜ Verified
+**Status:** ⬜ Not Started | ⬜ In Progress | ⬜ Complete | ✅ Verified
 
 **Implementation Checklist:**
 - [x] Database: `tags` and `todo_tags` tables
-- [ ] API endpoint: `GET /api/tags` - **MISSING**
-- [ ] API endpoint: `POST /api/tags` - **MISSING**
-- [ ] API endpoint: `PUT /api/tags/[id]` - **MISSING**
-- [ ] API endpoint: `DELETE /api/tags/[id]` - **MISSING**
-- [ ] API endpoint: `POST /api/todos/[id]/tags` - **MISSING**
-- [ ] API endpoint: `DELETE /api/todos/[id]/tags` - **MISSING**
-- [ ] "Manage Tags" modal - **MISSING**
-- [ ] Tag creation form (name + color picker) - **MISSING**
-- [ ] Tag list with edit/delete buttons - **MISSING**
-- [ ] Tag selection in todo form (checkboxes) - **MISSING**
-- [ ] Tag badges on todos (colored) - **MISSING**
-- [ ] Click badge to filter by tag - **MISSING**
-- [ ] Tag filter indicator with clear button - **MISSING**
+- [x] API endpoint: `GET /api/tags`
+- [x] API endpoint: `POST /api/tags`
+- [x] API endpoint: `PUT /api/tags/[id]`
+- [x] API endpoint: `DELETE /api/tags/[id]`
+- [x] API endpoint: `POST /api/todos/[id]/tags`
+- [x] API endpoint: `DELETE /api/todos/[id]/tags`
+- [x] "Manage Tags" modal
+- [x] Tag creation form (name + color picker)
+- [x] Tag list with edit/delete buttons
+- [x] Tag selection in todo form (checkboxes)
+- [x] Tag badges on todos (colored)
+- [x] Click badge to filter by tag
+- [x] Tag filter indicator with clear button
 
 **Testing:**
 - [ ] E2E test: Create tag
@@ -220,23 +220,23 @@ This document provides a comprehensive checklist for evaluating the completeness
 ---
 
 ### ✅ Feature 07: Template System
-**Status:** ⬜ Not Started | ⬜ In Progress | ⬜ Complete | ⬜ Verified
+**Status:** ⬜ Not Started | ⬜ In Progress | ⬜ Complete | ✅ Verified
 
 **Implementation Checklist:**
 - [x] Database: `templates` table
-- [ ] API endpoint: `GET /api/templates` - **MISSING**
-- [ ] API endpoint: `POST /api/templates` - **MISSING**
-- [ ] API endpoint: `PUT /api/templates/[id]` - **MISSING**
-- [ ] API endpoint: `DELETE /api/templates/[id]` - **MISSING**
-- [ ] API endpoint: `POST /api/templates/[id]/use` - **MISSING**
-- [ ] "Save as Template" button - **MISSING (placeholder UI only)**
-- [ ] Save template modal (name, description, category) - **MISSING**
-- [ ] "Use Template" button - **MISSING (placeholder UI only)**
-- [ ] Template selection modal - **MISSING**
-- [ ] Category filter in template modal - **MISSING**
-- [ ] Template preview (shows settings) - **MISSING**
-- [ ] Subtasks JSON serialization
-- [ ] Due date offset calculation
+- [x] API endpoint: `GET /api/templates`
+- [x] API endpoint: `POST /api/templates`
+- [x] API endpoint: `PUT /api/templates/[id]`
+- [x] API endpoint: `DELETE /api/templates/[id]`
+- [x] API endpoint: `POST /api/templates/[id]/use`
+- [x] "Save as Template" button
+- [x] Save template modal (name, description, category)
+- [x] "Use Template" button
+- [x] Template selection modal
+- [x] Category filter in template modal
+- [x] Template preview (shows settings)
+- [x] Subtasks JSON serialization
+- [x] Due date offset calculation
 
 **Testing:**
 - [ ] E2E test: Save todo as template

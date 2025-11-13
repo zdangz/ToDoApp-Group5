@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { todoDB, tagDB, todoTagDB } from '@/lib/db';
-import { getSingaporeNow } from '@/lib/timezone';
+import { getSingaporeNow, addTime } from '@/lib/timezone';
 
 type RouteParams = Promise<{ id: string }>;
 
@@ -36,6 +36,26 @@ export async function PUT(request: NextRequest, { params }: { params: RouteParam
 
   try {
     const data = await request.json();
+    
+    // Validate due date if provided and being updated
+    if (data.due_date !== undefined && data.due_date !== null) {
+      const dueDate = new Date(data.due_date);
+      const now = getSingaporeNow();
+      const minimumDueDate = addTime(now, 1, 'minutes');
+      
+      if (dueDate < minimumDueDate) {
+        return NextResponse.json({ 
+          error: 'Due date must be at least 1 minute in the future (Singapore timezone)' 
+        }, { status: 400 });
+      }
+    }
+
+    // Validate recurring todos require due date
+    if (data.is_recurring === true && !data.due_date && !todo.due_date) {
+      return NextResponse.json({ 
+        error: 'Recurring todos require a due date' 
+      }, { status: 400 });
+    }
     
     // If marking as completed and it's a recurring todo, create next instance
     if (data.completed === true && todo.is_recurring && !todo.completed && todo.recurrence_pattern) {

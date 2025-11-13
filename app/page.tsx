@@ -43,9 +43,28 @@ export default function HomePage() {
   const [templateCategory, setTemplateCategory] = useState('');
   const [currentTodoForTemplate, setCurrentTodoForTemplate] = useState<any>(null);
 
+  // Tag state
+  const [tags, setTags] = useState<any[]>([]);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [tagName, setTagName] = useState('');
+  const [tagColor, setTagColor] = useState('#3b82f6');
+  const [editingTag, setEditingTag] = useState<any>(null);
+  const [selectedTagFilter, setSelectedTagFilter] = useState<number | null>(null);
+  const [todoTags, setTodoTags] = useState<{ [todoId: number]: any[] }>({});
+
   // Notification state
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+
+  // Edit todo modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTodo, setEditingTodo] = useState<any>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editPriority, setEditPriority] = useState<'high' | 'medium' | 'low'>('medium');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editIsRecurring, setEditIsRecurring] = useState(false);
+  const [editRecurrencePattern, setEditRecurrencePattern] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('weekly');
+  const [editReminderMinutes, setEditReminderMinutes] = useState<number | null>(null);
 
   // Use notifications hook
   useNotifications(notificationsEnabled, fetchTodos);
@@ -63,6 +82,7 @@ export default function HomePage() {
   useEffect(() => {
     fetchTodos();
     fetchTemplates();
+    fetchTags();
     checkAuth();
 
     // Close dropdown when clicking outside
@@ -126,6 +146,10 @@ export default function HomePage() {
       if (res.ok) {
         const data = await res.json();
         setTodos(data);
+        // Fetch tags for each todo
+        data.forEach((todo: any) => {
+          fetchTodoTags(todo.id);
+        });
       }
     } catch (error) {
       console.error('Failed to fetch todos:', error);
@@ -220,6 +244,59 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error('Failed to delete todo:', error);
+    }
+  }
+
+  function openEditModal(todo: any) {
+    setEditingTodo(todo);
+    setEditTitle(todo.title);
+    setEditPriority(todo.priority);
+    setEditDueDate(todo.due_date ? new Date(todo.due_date).toISOString().slice(0, 16) : '');
+    setEditIsRecurring(todo.is_recurring || false);
+    setEditRecurrencePattern(todo.recurrence_pattern || 'weekly');
+    setEditReminderMinutes(todo.reminder_minutes);
+    setShowEditModal(true);
+  }
+
+  function closeEditModal() {
+    setShowEditModal(false);
+    setEditingTodo(null);
+    setEditTitle('');
+    setEditPriority('medium');
+    setEditDueDate('');
+    setEditIsRecurring(false);
+    setEditRecurrencePattern('weekly');
+    setEditReminderMinutes(null);
+  }
+
+  async function updateTodo(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTitle.trim() || !editingTodo) return;
+
+    try {
+      const res = await fetch(`/api/todos/${editingTodo.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          priority: editPriority,
+          due_date: editDueDate || null,
+          is_recurring: editIsRecurring,
+          recurrence_pattern: editIsRecurring ? editRecurrencePattern : null,
+          reminder_minutes: editReminderMinutes,
+        }),
+      });
+
+      if (res.ok) {
+        closeEditModal();
+        fetchTodos();
+      } else {
+        const errorData = await res.json();
+        alert('Failed to update todo: ' + (errorData.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to update todo:', error);
+      alert('Error: ' + (error as Error).message);
     }
   }
 
@@ -447,6 +524,143 @@ export default function HomePage() {
     }
   }
 
+  // Tag functions
+  async function fetchTags() {
+    try {
+      const res = await fetch('/api/tags');
+      if (res.ok) {
+        const data = await res.json();
+        setTags(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch tags:', error);
+    }
+  }
+
+  async function fetchTodoTags(todoId: number) {
+    try {
+      const res = await fetch(`/api/todos/${todoId}/tags`);
+      if (res.ok) {
+        const data = await res.json();
+        setTodoTags(prev => ({ ...prev, [todoId]: data }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch todo tags:', error);
+    }
+  }
+
+  function openTagModal(tag?: any) {
+    if (tag) {
+      setEditingTag(tag);
+      setTagName(tag.name);
+      setTagColor(tag.color);
+    } else {
+      setEditingTag(null);
+      setTagName('');
+      setTagColor('#3b82f6');
+    }
+    setShowTagModal(true);
+  }
+
+  function closeTagModal() {
+    setShowTagModal(false);
+    setEditingTag(null);
+    setTagName('');
+    setTagColor('#3b82f6');
+  }
+
+  async function saveTag() {
+    if (!tagName.trim()) {
+      alert('Please enter a tag name');
+      return;
+    }
+
+    try {
+      if (editingTag) {
+        // Update existing tag
+        const res = await fetch(`/api/tags/${editingTag.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: tagName.trim(), color: tagColor }),
+        });
+
+        if (res.ok) {
+          closeTagModal();
+          fetchTags();
+          fetchTodos(); // Refresh to show updated tag badges
+        } else {
+          const error = await res.json();
+          alert('Failed to update tag: ' + (error.error || 'Unknown error'));
+        }
+      } else {
+        // Create new tag
+        const res = await fetch('/api/tags', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: tagName.trim(), color: tagColor }),
+        });
+
+        if (res.ok) {
+          closeTagModal();
+          fetchTags();
+        } else {
+          const error = await res.json();
+          alert('Failed to create tag: ' + (error.error || 'Unknown error'));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save tag:', error);
+      alert('Error saving tag');
+    }
+  }
+
+  async function deleteTag(tagId: number) {
+    if (!confirm('Delete this tag? It will be removed from all todos.')) return;
+
+    try {
+      const res = await fetch(`/api/tags/${tagId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        fetchTags();
+        fetchTodos(); // Refresh to remove tag badges
+      }
+    } catch (error) {
+      console.error('Failed to delete tag:', error);
+    }
+  }
+
+  async function toggleTodoTag(todoId: number, tagId: number, isAssigned: boolean) {
+    try {
+      if (isAssigned) {
+        // Remove tag
+        const res = await fetch(`/api/todos/${todoId}/tags?tag_id=${tagId}`, {
+          method: 'DELETE',
+        });
+        if (res.ok) {
+          fetchTodoTags(todoId);
+        }
+      } else {
+        // Add tag
+        const res = await fetch(`/api/todos/${todoId}/tags`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag_id: tagId }),
+        });
+        if (res.ok) {
+          fetchTodoTags(todoId);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle todo tag:', error);
+    }
+  }
+
+  function filterByTag(tagId: number) {
+    setSelectedTagFilter(tagId === selectedTagFilter ? null : tagId);
+  }
+
   async function exportJSON() {
     try {
       const res = await fetch('/api/todos/export');
@@ -567,13 +781,24 @@ export default function HomePage() {
     low: 'bg-blue-500',
   };
 
-  // Filter todos based on search, priority, and advanced filters
+  // Filter todos based on search, priority, tags, and advanced filters
   const filteredTodos = todos.filter(todo => {
-    // Search filter (case-insensitive, matches title)
-    const matchesSearch = todo.title.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+    // Search filter (case-insensitive, matches title and tag names)
+    let matchesSearch = todo.title.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+    // Also search in tag names
+    if (!matchesSearch && todoTags[todo.id]) {
+      matchesSearch = todoTags[todo.id].some(tag => 
+        tag.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+      );
+    }
     
     // Priority filter
     const matchesPriority = priorityFilter === 'all' || todo.priority === priorityFilter;
+    
+    // Tag filter
+    const matchesTag = selectedTagFilter === null || (
+      todoTags[todo.id]?.some(tag => tag.id === selectedTagFilter)
+    );
     
     // Completion status filter (advanced)
     let matchesCompletion = true;
@@ -592,7 +817,7 @@ export default function HomePage() {
       matchesDueDate = matchesDueDate && new Date(todo.due_date) <= new Date(dueDateTo + 'T23:59:59');
     }
     
-    return matchesSearch && matchesPriority && matchesCompletion && matchesDueDate;
+    return matchesSearch && matchesPriority && matchesTag && matchesCompletion && matchesDueDate;
   });
 
   const activeTodos = filteredTodos.filter(t => !t.completed);
@@ -602,6 +827,7 @@ export default function HomePage() {
   const activeFiltersCount = [
     debouncedSearchQuery !== '',
     priorityFilter !== 'all',
+    selectedTagFilter !== null,
     completionFilter !== 'all',
     dueDateFrom !== '',
     dueDateTo !== ''
@@ -611,6 +837,7 @@ export default function HomePage() {
   const clearAllFilters = () => {
     setSearchQuery('');
     setPriorityFilter('all');
+    setSelectedTagFilter(null);
     setCompletionFilter('all');
     setDueDateFrom('');
     setDueDateTo('');
@@ -700,6 +927,13 @@ export default function HomePage() {
               style={{ backgroundColor: '#3b82f6' }}
             >
               📋 Templates
+            </button>
+            <button 
+              onClick={openTagModal}
+              className="px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md" 
+              style={{ backgroundColor: '#10b981' }}
+            >
+              🏷️ Tags
             </button>
             <button 
               onClick={toggleNotifications}
@@ -857,6 +1091,33 @@ export default function HomePage() {
                   <option value="10080">1 week before</option>
                 </select>
               </label>
+
+              {/* Tag Selection */}
+              {tags.length > 0 && (
+                <div className="flex items-start gap-2 flex-wrap">
+                  <span style={{ color: '#4a5568' }}>Tags:</span>
+                  {tags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => {
+                        // For create form, we'll store selected tags in a new state
+                        // But for simplicity, we'll handle this after creation
+                        // For now, this is just visual - tags will be added via edit modal
+                      }}
+                      className="px-2 py-1 rounded-full text-xs font-medium transition-all cursor-pointer"
+                      style={{
+                        backgroundColor: tag.color + '20',
+                        color: tag.color,
+                        border: `1px solid ${tag.color}`
+                      }}
+                      title={`Add ${tag.name} tag`}
+                    >
+                      {tag.name}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <label className="flex items-center gap-2" style={{ color: '#4a5568' }}>
                 Use Template:
@@ -1038,6 +1299,14 @@ export default function HomePage() {
                 {completionFilter !== 'all' && <span className="px-2 py-1 bg-white rounded text-sm">Status: {completionFilter}</span>}
                 {dueDateFrom && <span className="px-2 py-1 bg-white rounded text-sm">From: {dueDateFrom}</span>}
                 {dueDateTo && <span className="px-2 py-1 bg-white rounded text-sm">To: {dueDateTo}</span>}
+                {selectedTagFilter && (
+                  <span 
+                    className="px-2 py-1 bg-white rounded text-sm flex items-center gap-1"
+                    style={{ color: selectedTagFilter.color }}
+                  >
+                    Tag: 🏷️ {selectedTagFilter.name}
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -1086,7 +1355,7 @@ export default function HomePage() {
                           style={{ accentColor: '#3b82f6' }}
                         />
                         <div className="flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium" style={{ color: '#1a202c' }}>{todo.title}</span>
                             <span 
                               className="px-2 py-0.5 rounded text-xs font-medium"
@@ -1097,6 +1366,21 @@ export default function HomePage() {
                             >
                               {todo.priority.charAt(0).toUpperCase() + todo.priority.slice(1)}
                             </span>
+                            {todoTags[todo.id] && todoTags[todo.id].map((tag) => (
+                              <button
+                                key={tag.id}
+                                onClick={() => filterByTag(tag)}
+                                className="px-2 py-0.5 rounded-full text-xs font-medium transition-all hover:shadow-md cursor-pointer"
+                                style={{ 
+                                  backgroundColor: tag.color + '20',
+                                  color: tag.color,
+                                  border: `1px solid ${tag.color}`
+                                }}
+                                title={`Filter by ${tag.name}`}
+                              >
+                                🏷️ {tag.name}
+                              </button>
+                            ))}
                             {progress.total > 0 && (
                               <span className="text-sm font-medium" style={{ color: '#6b7280' }}>
                                 {progress.completed}/{progress.total}
@@ -1125,6 +1409,7 @@ export default function HomePage() {
                         </button>
                         
                         <button
+                          onClick={() => openEditModal(todo)}
                           className="px-3 py-1.5 rounded-lg font-medium transition-all hover:bg-blue-50"
                           style={{ color: '#3b82f6' }}
                         >
@@ -1272,7 +1557,24 @@ export default function HomePage() {
                       style={{ accentColor: '#3b82f6' }}
                     />
                     <div className="flex-1">
-                      <span className="line-through" style={{ color: '#9ca3af' }}>{todo.title}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="line-through" style={{ color: '#9ca3af' }}>{todo.title}</span>
+                        {todoTags[todo.id] && todoTags[todo.id].map((tag) => (
+                          <button
+                            key={tag.id}
+                            onClick={() => filterByTag(tag)}
+                            className="px-2 py-0.5 rounded-full text-xs font-medium transition-all hover:shadow-md cursor-pointer opacity-60"
+                            style={{ 
+                              backgroundColor: tag.color + '20',
+                              color: tag.color,
+                              border: `1px solid ${tag.color}`
+                            }}
+                            title={`Filter by ${tag.name}`}
+                          >
+                            🏷️ {tag.name}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <button
                       onClick={() => deleteTodo(todo.id)}
@@ -1288,6 +1590,344 @@ export default function HomePage() {
           )}
         </div>
       </div>
+
+      {/* Tag Management Modal */}
+      {showTagModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={closeTagModal}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold" style={{ color: '#1e293b' }}>
+                Manage Tags
+              </h2>
+              <button
+                onClick={closeTagModal}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Tag Creation/Edit Form */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <h3 className="text-lg font-semibold mb-4" style={{ color: '#334155' }}>
+                {editingTag ? 'Edit Tag' : 'Create New Tag'}
+              </h3>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={tagName}
+                  onChange={(e) => setTagName(e.target.value)}
+                  placeholder="Tag name..."
+                  className="flex-1 px-4 py-2 border rounded-lg"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    color: '#2d3748'
+                  }}
+                />
+                <input
+                  type="color"
+                  value={tagColor}
+                  onChange={(e) => setTagColor(e.target.value)}
+                  className="w-16 h-10 border rounded-lg cursor-pointer"
+                  title="Choose tag color"
+                />
+                <button
+                  onClick={saveTag}
+                  className="px-6 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md"
+                  style={{ backgroundColor: '#10b981' }}
+                >
+                  {editingTag ? 'Update' : 'Create'}
+                </button>
+                {editingTag && (
+                  <button
+                    onClick={() => {
+                      setEditingTag(null);
+                      setTagName('');
+                      setTagColor('#3b82f6');
+                    }}
+                    className="px-4 py-2 rounded-lg font-medium transition-all"
+                    style={{ 
+                      backgroundColor: '#f3f4f6',
+                      color: '#6b7280'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Tag List */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3" style={{ color: '#334155' }}>
+                Your Tags
+              </h3>
+              {tags.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No tags yet. Create one above!</p>
+              ) : (
+                <div className="space-y-2">
+                  {tags.map((tag) => (
+                    <div
+                      key={tag.id}
+                      className="flex items-center justify-between p-3 bg-white border rounded-lg hover:shadow-sm transition-all"
+                      style={{ borderColor: '#e2e8f0' }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                        <span className="font-medium" style={{ color: '#1e293b' }}>
+                          {tag.name}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingTag(tag);
+                            setTagName(tag.name);
+                            setTagColor(tag.color);
+                          }}
+                          className="px-3 py-1 rounded text-sm font-medium transition-colors"
+                          style={{ 
+                            backgroundColor: '#f3f4f6',
+                            color: '#4b5563'
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => deleteTag(tag.id)}
+                          className="px-3 py-1 rounded text-sm font-medium text-white transition-colors"
+                          style={{ backgroundColor: '#ef4444' }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Todo Modal */}
+      {showEditModal && editingTodo && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={closeEditModal}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold" style={{ color: '#1e293b' }}>
+                Edit Todo
+              </h2>
+              <button
+                onClick={closeEditModal}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={updateTodo} className="space-y-6">
+              {/* Title */}
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#4a5568' }}>
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  required
+                  className="w-full px-4 py-2.5 border rounded-lg"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    color: '#2d3748'
+                  }}
+                  placeholder="Todo title"
+                />
+              </div>
+
+              {/* Priority */}
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#4a5568' }}>
+                  Priority
+                </label>
+                <select
+                  value={editPriority}
+                  onChange={(e) => setEditPriority(e.target.value as 'high' | 'medium' | 'low')}
+                  className="w-full px-4 py-2.5 border rounded-lg font-medium"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    color: '#2d3748'
+                  }}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+
+              {/* Due Date */}
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#4a5568' }}>
+                  Due Date
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editDueDate}
+                  onChange={(e) => setEditDueDate(e.target.value)}
+                  className="w-full px-4 py-2.5 border rounded-lg"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    color: '#2d3748'
+                  }}
+                />
+              </div>
+
+              {/* Recurring */}
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editIsRecurring}
+                    onChange={(e) => setEditIsRecurring(e.target.checked)}
+                    className="w-4 h-4 rounded"
+                    style={{ accentColor: '#3b82f6' }}
+                  />
+                  <span className="text-sm font-medium" style={{ color: '#4a5568' }}>
+                    Repeat this todo
+                  </span>
+                </label>
+              </div>
+
+              {/* Recurrence Pattern */}
+              {editIsRecurring && (
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: '#4a5568' }}>
+                    Repeat Pattern
+                  </label>
+                  <select
+                    value={editRecurrencePattern}
+                    onChange={(e) => setEditRecurrencePattern(e.target.value as any)}
+                    className="w-full px-4 py-2.5 border rounded-lg font-medium"
+                    style={{
+                      backgroundColor: '#ffffff',
+                      borderColor: '#e2e8f0',
+                      color: '#2d3748'
+                    }}
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Reminder */}
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#4a5568' }}>
+                  Reminder {!editDueDate && <span className="text-xs">(requires due date)</span>}
+                </label>
+                <select
+                  value={editReminderMinutes || ''}
+                  onChange={(e) => setEditReminderMinutes(e.target.value ? parseInt(e.target.value) : null)}
+                  disabled={!editDueDate}
+                  className="w-full px-4 py-2.5 border rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    color: '#2d3748'
+                  }}
+                >
+                  <option value="">No reminder</option>
+                  <option value="15">15 minutes before</option>
+                  <option value="30">30 minutes before</option>
+                  <option value="60">1 hour before</option>
+                  <option value="120">2 hours before</option>
+                  <option value="1440">1 day before</option>
+                  <option value="2880">2 days before</option>
+                  <option value="10080">1 week before</option>
+                </select>
+              </div>
+
+              {/* Tags */}
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#4a5568' }}>
+                  Tags
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((tag) => {
+                    const isSelected = todoTags[editingTodo.id]?.some(t => t.id === tag.id) || false;
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => toggleTodoTag(editingTodo.id, tag.id)}
+                        className="px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+                        style={{
+                          backgroundColor: isSelected ? tag.color : tag.color + '20',
+                          color: isSelected ? '#ffffff' : tag.color,
+                          border: `1px solid ${tag.color}`
+                        }}
+                      >
+                        {isSelected ? '✓' : '+'} {tag.name}
+                      </button>
+                    );
+                  })}
+                  {tags.length === 0 && (
+                    <p className="text-sm text-gray-500">
+                      No tags available. Create tags first!
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="flex-1 px-6 py-2.5 rounded-lg font-medium transition-all border"
+                  style={{
+                    borderColor: '#e2e8f0',
+                    color: '#64748b',
+                    backgroundColor: '#ffffff'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!editTitle.trim()}
+                  className="flex-1 px-6 py-2.5 rounded-lg font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md"
+                  style={{ backgroundColor: '#3b82f6' }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Save Template Modal */}
       {showSaveTemplateModal && (

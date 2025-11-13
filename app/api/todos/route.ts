@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { todoDB } from '@/lib/db';
+import { getSingaporeNow, parseSingaporeDate, addTime } from '@/lib/timezone';
 
 export async function GET() {
   const session = await getSession();
@@ -23,6 +24,26 @@ export async function POST(request: NextRequest) {
     
     if (!data.title || !data.title.trim()) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
+    }
+
+    // Validate due date if provided
+    if (data.due_date) {
+      const dueDate = new Date(data.due_date);
+      const now = getSingaporeNow();
+      const minimumDueDate = addTime(now, 1, 'minutes');
+      
+      if (dueDate < minimumDueDate) {
+        return NextResponse.json({ 
+          error: 'Due date must be at least 1 minute in the future (Singapore timezone)' 
+        }, { status: 400 });
+      }
+    }
+
+    // Validate recurring todos require due date
+    if (data.is_recurring && !data.due_date) {
+      return NextResponse.json({ 
+        error: 'Recurring todos require a due date' 
+      }, { status: 400 });
     }
 
     const todo = todoDB.create({

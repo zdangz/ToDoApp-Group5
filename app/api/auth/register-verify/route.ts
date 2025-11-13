@@ -4,9 +4,7 @@ import type { RegistrationResponseJSON } from '@simplewebauthn/types';
 import { userDB, authenticatorDB } from '@/lib/db';
 import { createSession } from '@/lib/auth';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
-
-// Import challenges map from register-options
-import { challenges } from '../register-options/route';
+import { getChallenge, deleteChallenge } from '@/lib/challenge-store';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get stored challenge
-    const expectedChallenge = challenges.get(username);
+    const expectedChallenge = getChallenge(username);
     if (!expectedChallenge) {
       return NextResponse.json({ error: 'Challenge not found or expired' }, { status: 400 });
     }
@@ -44,19 +42,19 @@ export async function POST(request: NextRequest) {
     const user = userDB.create(username);
 
     // Store authenticator
-    const { credential, counter } = registrationInfo;
-    const credentialID = isoBase64URL.fromBuffer(credential.id);
-    const credentialPublicKey = isoBase64URL.fromBuffer(credential.publicKey);
+    const { credentialID, credentialPublicKey, counter } = registrationInfo;
+    // Convert public key buffer to base64url for storage
+    const credentialPublicKeyBase64 = isoBase64URL.fromBuffer(credentialPublicKey);
 
     authenticatorDB.create(
       user.id,
       credentialID,
-      credentialPublicKey,
+      credentialPublicKeyBase64,
       counter ?? 0
     );
 
     // Clean up challenge
-    challenges.delete(username);
+    deleteChallenge(username);
 
     // Create session
     await createSession(user.id, user.username);

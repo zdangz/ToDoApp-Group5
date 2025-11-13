@@ -418,6 +418,7 @@ export default function HomePage() {
       
       if (res.ok) {
         setShowTemplateModal(false);
+        setSelectedTemplate(''); // Reset dropdown
         fetchTodos();
         alert('Todo created from template!');
       } else {
@@ -861,7 +862,13 @@ export default function HomePage() {
                 Use Template:
                 <select
                   value={selectedTemplate}
-                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                  onChange={(e) => {
+                    const templateId = e.target.value;
+                    setSelectedTemplate(templateId);
+                    if (templateId) {
+                      applyTemplate(Number(templateId));
+                    }
+                  }}
                   className="px-3 py-1.5 border rounded-lg"
                   style={{
                     backgroundColor: '#ffffff',
@@ -870,6 +877,11 @@ export default function HomePage() {
                   }}
                 >
                   <option value="">Select a template...</option>
+                  {templates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
                 </select>
               </label>
 

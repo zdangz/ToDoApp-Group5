@@ -195,11 +195,24 @@ export default function HomePage() {
       if (res.ok) {
         const data = await res.json();
         console.log('Todo created:', data);
+        
+        // Assign tags if any are selected
+        if (selectedTags.length > 0) {
+          for (const tagId of selectedTags) {
+            await fetch(`/api/todos/${data.todo.id}/tags`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tag_id: tagId }),
+            });
+          }
+        }
+        
         setTitle('');
         setDueDate('');
         setIsRecurring(false);
         setRecurrencePattern('weekly');
         setReminderMinutes(null);
+        setSelectedTags([]);
         fetchTodos();
       } else {
         const errorData = await res.json();
@@ -260,6 +273,9 @@ export default function HomePage() {
     setEditIsRecurring(!!todo.recurrence_pattern);
     setEditRecurrencePattern(todo.recurrence_pattern || 'weekly');
     setEditReminderMinutes(todo.reminder_minutes);
+    // Load current tags for the todo
+    const currentTodoTags = todoTags[todo.id] || [];
+    setSelectedTags(currentTodoTags.map((t: any) => t.id));
     setShowEditModal(true);
   }
 
@@ -286,8 +302,33 @@ export default function HomePage() {
       });
 
       if (res.ok) {
+        // Update tags for the todo
+        const currentTodoTags = todoTags[editingTodo.id] || [];
+        const currentTagIds = currentTodoTags.map((t: any) => t.id);
+        
+        // Add new tags
+        const tagsToAdd = selectedTags.filter(id => !currentTagIds.includes(id));
+        for (const tagId of tagsToAdd) {
+          await fetch(`/api/todos/${editingTodo.id}/tags`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tag_id: tagId }),
+          });
+        }
+        
+        // Remove old tags
+        const tagsToRemove = currentTagIds.filter((id: number) => !selectedTags.includes(id));
+        for (const tagId of tagsToRemove) {
+          await fetch(`/api/todos/${editingTodo.id}/tags`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tag_id: tagId }),
+          });
+        }
+        
         setShowEditModal(false);
         setEditingTodo(null);
+        setSelectedTags([]);
         fetchTodos();
       }
     } catch (error) {
@@ -451,8 +492,7 @@ export default function HomePage() {
     }
   }
 
-  async function createTag(e: React.FormEvent) {
-    e.preventDefault();
+  async function createTag() {
     if (!tagName.trim()) return;
 
     setTagError('');
@@ -918,6 +958,13 @@ export default function HomePage() {
               📋 Templates
             </button>
             <button 
+              onClick={() => setShowTagsModal(true)}
+              className="px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md" 
+              style={{ backgroundColor: '#10b981' }}
+            >
+              🏷️ Manage Tags
+            </button>
+            <button 
               onClick={toggleNotifications}
               className="px-4 py-2 rounded-lg font-medium transition-all hover:shadow-md"
               style={{ 
@@ -1101,6 +1148,35 @@ export default function HomePage() {
                 </select>
               </label>
 
+              {/* Tag Selection */}
+              {tags.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span style={{ color: '#4a5568' }}>Tags:</span>
+                  {tags.map((tag) => (
+                    <label key={tag.id} className="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedTags.includes(tag.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedTags([...selectedTags, tag.id]);
+                          } else {
+                            setSelectedTags(selectedTags.filter(id => id !== tag.id));
+                          }
+                        }}
+                        className="w-3 h-3 rounded"
+                      />
+                      <span
+                        className="px-2 py-0.5 rounded text-xs font-medium"
+                        style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                      >
+                        {tag.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
               {title && (
                 <button
                   type="button"
@@ -1254,6 +1330,11 @@ export default function HomePage() {
                 {completionFilter !== 'all' && <span className="px-2 py-1 bg-white rounded text-sm">Status: {completionFilter}</span>}
                 {dueDateFrom && <span className="px-2 py-1 bg-white rounded text-sm">From: {dueDateFrom}</span>}
                 {dueDateTo && <span className="px-2 py-1 bg-white rounded text-sm">To: {dueDateTo}</span>}
+                {tagFilter !== null && (
+                  <span className="px-2 py-1 bg-white rounded text-sm">
+                    Tag: {tags.find(t => t.id === tagFilter)?.name || 'Unknown'}
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -1322,6 +1403,18 @@ export default function HomePage() {
                                 🔄 {todo.recurrence_pattern?.charAt(0).toUpperCase() + todo.recurrence_pattern?.slice(1)}
                               </span>
                             )}
+                            {/* Tag badges */}
+                            {todoTags[todo.id] && todoTags[todo.id].map((tag: any) => (
+                              <span
+                                key={tag.id}
+                                className="px-2 py-0.5 rounded text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity"
+                                style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                                onClick={() => setTagFilter(tag.id)}
+                                title={`Filter by ${tag.name}`}
+                              >
+                                {tag.name}
+                              </span>
+                            ))}
                             {progress.total > 0 && (
                               <span className="text-sm font-medium" style={{ color: '#6b7280' }}>
                                 {progress.completed}/{progress.total}
@@ -1509,6 +1602,18 @@ export default function HomePage() {
                             🔄 {todo.recurrence_pattern?.charAt(0).toUpperCase() + todo.recurrence_pattern?.slice(1)}
                           </span>
                         )}
+                        {/* Tag badges */}
+                        {todoTags[todo.id] && todoTags[todo.id].map((tag: any) => (
+                          <span
+                            key={tag.id}
+                            className="px-2 py-0.5 rounded text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity"
+                            style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                            onClick={() => setTagFilter(tag.id)}
+                            title={`Filter by ${tag.name}`}
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
                       </div>
                     </div>
                     <button
@@ -1774,6 +1879,39 @@ export default function HomePage() {
               </select>
             </div>
 
+            {/* Tag Selection */}
+            {tags.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2" style={{ color: '#475569' }}>
+                  Tags
+                </label>
+                <div className="flex items-center gap-2 flex-wrap p-3 border rounded-lg" style={{ borderColor: '#e2e8f0', backgroundColor: '#f9fafb' }}>
+                  {tags.map((tag) => (
+                    <label key={tag.id} className="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedTags.includes(tag.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedTags([...selectedTags, tag.id]);
+                          } else {
+                            setSelectedTags(selectedTags.filter(id => id !== tag.id));
+                          }
+                        }}
+                        className="w-3 h-3 rounded"
+                      />
+                      <span
+                        className="px-2 py-0.5 rounded text-xs font-medium"
+                        style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                      >
+                        {tag.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Buttons */}
             <div className="flex gap-3">
               <button
@@ -1924,6 +2062,205 @@ export default function HomePage() {
                 })}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Manage Tags Modal */}
+      {showTagsModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowTagsModal(false);
+            setEditingTag(null);
+            setTagName('');
+            setTagColor('#3b82f6');
+            setTagError('');
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-bold mb-6" style={{ color: '#1e293b' }}>
+              Manage Tags
+            </h2>
+
+            {/* Create/Edit Tag Form */}
+            <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: '#f9fafb' }}>
+              <h3 className="text-lg font-semibold mb-3" style={{ color: '#1e293b' }}>
+                {editingTag ? 'Edit Tag' : 'Create New Tag'}
+              </h3>
+              
+              {tagError && (
+                <div className="mb-3 p-2 rounded text-sm" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>
+                  {tagError}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: '#475569' }}>
+                    Tag Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={tagName}
+                    onChange={(e) => {
+                      setTagName(e.target.value);
+                      setTagError('');
+                    }}
+                    placeholder="e.g., Work, Personal, Urgent"
+                    className="w-full px-3 py-2 border rounded-lg"
+                    style={{
+                      backgroundColor: '#ffffff',
+                      borderColor: '#e2e8f0',
+                      color: '#2d3748'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: '#475569' }}>
+                    Color
+                  </label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={tagColor}
+                      onChange={(e) => setTagColor(e.target.value)}
+                      className="w-12 h-10 rounded border cursor-pointer"
+                      style={{ borderColor: '#e2e8f0' }}
+                    />
+                    <input
+                      type="text"
+                      value={tagColor}
+                      onChange={(e) => setTagColor(e.target.value)}
+                      className="flex-1 px-3 py-2 border rounded-lg font-mono text-sm"
+                      style={{
+                        backgroundColor: '#ffffff',
+                        borderColor: '#e2e8f0',
+                        color: '#2d3748'
+                      }}
+                    />
+                    <div
+                      className="px-3 py-2 rounded-lg text-sm font-medium"
+                      style={{ backgroundColor: tagColor + '20', color: tagColor }}
+                    >
+                      Preview
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  {editingTag ? (
+                    <>
+                      <button
+                        onClick={updateTag}
+                        disabled={!tagName.trim()}
+                        className="flex-1 px-4 py-2 rounded-lg font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: '#3b82f6' }}
+                      >
+                        Update Tag
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingTag(null);
+                          setTagName('');
+                          setTagColor('#3b82f6');
+                          setTagError('');
+                        }}
+                        className="px-4 py-2 rounded-lg font-medium transition-all"
+                        style={{ 
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #e2e8f0',
+                          color: '#4a5568'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={createTag}
+                      disabled={!tagName.trim()}
+                      className="w-full px-4 py-2 rounded-lg font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: '#10b981' }}
+                    >
+                      Create Tag
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Tags List */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3" style={{ color: '#1e293b' }}>
+                Your Tags ({tags.length})
+              </h3>
+
+              {tags.length === 0 ? (
+                <p className="text-center py-6" style={{ color: '#9ca3af' }}>
+                  No tags yet. Create one above!
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {tags.map((tag) => (
+                    <div
+                      key={tag.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border"
+                      style={{ borderColor: '#e2e8f0', backgroundColor: '#ffffff' }}
+                    >
+                      <span
+                        className="px-3 py-1 rounded text-sm font-medium flex-1"
+                        style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                      >
+                        {tag.name}
+                      </span>
+                      <button
+                        onClick={() => startEditTag(tag)}
+                        className="px-3 py-1 rounded font-medium text-sm transition-all hover:bg-blue-50"
+                        style={{ color: '#3b82f6' }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete tag "${tag.name}"? This will remove it from all todos.`)) {
+                            deleteTag(tag.id);
+                          }
+                        }}
+                        className="px-3 py-1 rounded font-medium text-sm transition-all hover:bg-red-50"
+                        style={{ color: '#ef4444' }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowTagsModal(false);
+                  setEditingTag(null);
+                  setTagName('');
+                  setTagColor('#3b82f6');
+                  setTagError('');
+                }}
+                className="px-6 py-2 rounded-lg font-medium transition-all"
+                style={{ 
+                  backgroundColor: '#ffffff',
+                  border: '2px solid #e2e8f0',
+                  color: '#4a5568'
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

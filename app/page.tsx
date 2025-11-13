@@ -12,6 +12,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrencePattern, setRecurrencePattern] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('weekly');
   const [reminderMinutes, setReminderMinutes] = useState<number | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,6 +75,7 @@ export default function HomePage() {
           priority,
           due_date: dueDate || null,
           is_recurring: isRecurring,
+          recurrence_pattern: isRecurring ? recurrencePattern : null,
           reminder_minutes: reminderMinutes,
         }),
       });
@@ -82,6 +84,7 @@ export default function HomePage() {
         setTitle('');
         setDueDate('');
         setIsRecurring(false);
+        setRecurrencePattern('weekly');
         setReminderMinutes(null);
         fetchTodos();
       }
@@ -443,6 +446,24 @@ export default function HomePage() {
                 />
                 <span style={{ color: '#4a5568' }}>Repeat</span>
               </label>
+
+              {isRecurring && (
+                <select
+                  value={recurrencePattern}
+                  onChange={(e) => setRecurrencePattern(e.target.value as any)}
+                  className="px-3 py-1.5 border rounded-lg"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    color: '#2d3748'
+                  }}
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              )}
 
               <label className="flex items-center gap-2" style={{ color: '#4a5568' }}>
                 Reminder:

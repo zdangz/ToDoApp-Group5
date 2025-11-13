@@ -3,13 +3,24 @@ import { test, expect } from '@playwright/test';
 test.describe('Todo CRUD Operations', () => {
   test.beforeEach(async ({ page, context }, testInfo) => {
     // Register/Login via API with unique username per test
-    const username = `testuser-crud-${testInfo.testId}`;
-    await context.request.post('http://localhost:3000/api/auth/register', {
+    const username = `testuser-crud-${testInfo.testId}-${Date.now()}`;
+    const response = await context.request.post('http://localhost:3000/api/auth/register', {
       data: { username }
     });
     
+    // Ensure registration succeeded
+    if (!response.ok()) {
+      throw new Error(`Registration failed: ${await response.text()}`);
+    }
+    
     // Navigate to home page
     await page.goto('http://localhost:3000/');
+    
+    // Wait for page to load
+    await page.waitForLoadState('networkidle');
+    
+    // Verify we're logged in by checking for the input field
+    await page.waitForSelector('input[placeholder*="Add a new todo"]', { timeout: 10000 });
   });
 
   test('should create todo with title only', async ({ page }) => {
@@ -20,6 +31,9 @@ test.describe('Todo CRUD Operations', () => {
 
     // Click Add button
     await page.click('button:has-text("Add")');
+    
+    // Wait for the API call to complete
+    await page.waitForTimeout(500);
 
     // Verify todo appears in the list
     await expect(page.locator(`text=${todoTitle}`)).toBeVisible();

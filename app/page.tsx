@@ -58,6 +58,16 @@ export default function HomePage() {
   const [editingTag, setEditingTag] = useState<any>(null);
   const [tagError, setTagError] = useState('');
 
+  // Edit todo state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTodo, setEditingTodo] = useState<any>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editPriority, setEditPriority] = useState<'high' | 'medium' | 'low'>('medium');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editIsRecurring, setEditIsRecurring] = useState(false);
+  const [editRecurrencePattern, setEditRecurrencePattern] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('weekly');
+  const [editReminderMinutes, setEditReminderMinutes] = useState<number | null>(null);
+
   // Use notifications hook
   useNotifications(notificationsEnabled, fetchTodos);
 
@@ -233,6 +243,43 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error('Failed to delete todo:', error);
+    }
+  }
+
+  function openEditModal(todo: any) {
+    setEditingTodo(todo);
+    setEditTitle(todo.title);
+    setEditPriority(todo.priority);
+    setEditDueDate(todo.due_date ? todo.due_date.slice(0, 16) : '');
+    setEditIsRecurring(!!todo.recurrence_pattern);
+    setEditRecurrencePattern(todo.recurrence_pattern || 'weekly');
+    setEditReminderMinutes(todo.reminder_minutes);
+    setShowEditModal(true);
+  }
+
+  async function updateTodo() {
+    if (!editingTodo || !editTitle.trim()) return;
+
+    try {
+      const res = await fetch(`/api/todos/${editingTodo.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          priority: editPriority,
+          due_date: editDueDate || null,
+          recurrence_pattern: editIsRecurring ? editRecurrencePattern : null,
+          reminder_minutes: editReminderMinutes,
+        }),
+      });
+
+      if (res.ok) {
+        setShowEditModal(false);
+        setEditingTodo(null);
+        fetchTodos();
+      }
+    } catch (error) {
+      console.error('Failed to update todo:', error);
     }
   }
 
@@ -1282,6 +1329,7 @@ export default function HomePage() {
                         </button>
                         
                         <button
+                          onClick={() => openEditModal(todo)}
                           className="px-3 py-1.5 rounded-lg font-medium transition-all hover:bg-blue-50"
                           style={{ color: '#3b82f6' }}
                         >
@@ -1432,6 +1480,13 @@ export default function HomePage() {
                       <span className="line-through" style={{ color: '#9ca3af' }}>{todo.title}</span>
                     </div>
                     <button
+                      onClick={() => openEditModal(todo)}
+                      className="px-3 py-1.5 rounded-lg font-medium transition-all hover:bg-blue-50"
+                      style={{ color: '#3b82f6' }}
+                    >
+                      Edit
+                    </button>
+                    <button
                       onClick={() => deleteTodo(todo.id)}
                       className="px-3 py-1.5 rounded-lg font-medium transition-all hover:bg-red-50"
                       style={{ color: '#ef4444' }}
@@ -1552,6 +1607,159 @@ export default function HomePage() {
                 style={{ backgroundColor: '#3b82f6' }}
               >
                 Save Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Todo Modal */}
+      {showEditModal && editingTodo && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowEditModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl p-8 max-w-xl w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-bold mb-6" style={{ color: '#1e293b' }}>
+              Edit Todo
+            </h2>
+
+            {/* Title */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2" style={{ color: '#475569' }}>
+                Title
+              </label>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full px-4 py-2.5 border rounded-lg"
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderColor: '#e2e8f0',
+                  color: '#2d3748'
+                }}
+              />
+            </div>
+
+            {/* Priority */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2" style={{ color: '#475569' }}>
+                Priority
+              </label>
+              <select
+                value={editPriority}
+                onChange={(e) => setEditPriority(e.target.value as any)}
+                className="w-full px-4 py-2.5 border rounded-lg font-medium"
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderColor: '#e2e8f0',
+                  color: '#2d3748'
+                }}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+
+            {/* Due Date */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2" style={{ color: '#475569' }}>
+                Due Date (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+                className="w-full px-4 py-2.5 border rounded-lg"
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderColor: '#e2e8f0',
+                  color: '#2d3748'
+                }}
+              />
+            </div>
+
+            {/* Recurrence */}
+            <div className="mb-4 flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editIsRecurring}
+                  onChange={(e) => setEditIsRecurring(e.target.checked)}
+                  className="w-4 h-4 rounded"
+                />
+                <span style={{ color: '#4a5568' }}>Repeat</span>
+              </label>
+
+              {editIsRecurring && (
+                <select
+                  value={editRecurrencePattern}
+                  onChange={(e) => setEditRecurrencePattern(e.target.value as any)}
+                  className="px-3 py-1.5 border rounded-lg"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    color: '#2d3748'
+                  }}
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              )}
+            </div>
+
+            {/* Reminder */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-2" style={{ color: '#475569' }}>
+                Reminder
+              </label>
+              <select
+                value={editReminderMinutes || ''}
+                onChange={(e) => setEditReminderMinutes(e.target.value ? Number(e.target.value) : null)}
+                disabled={!editDueDate}
+                className="w-full px-4 py-2.5 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderColor: '#e2e8f0',
+                  color: '#2d3748'
+                }}
+              >
+                <option value="">None</option>
+                <option value="15">15 minutes before</option>
+                <option value="30">30 minutes before</option>
+                <option value="60">1 hour before</option>
+                <option value="120">2 hours before</option>
+                <option value="1440">1 day before</option>
+                <option value="2880">2 days before</option>
+                <option value="10080">1 week before</option>
+              </select>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={updateTodo}
+                className="flex-1 px-6 py-3 rounded-lg font-medium text-white transition-all hover:shadow-md"
+                style={{ backgroundColor: '#3b82f6' }}
+              >
+                Update
+              </button>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-6 py-3 rounded-lg font-medium transition-all"
+                style={{ 
+                  backgroundColor: '#f1f5f9',
+                  color: '#475569'
+                }}
+              >
+                Cancel
               </button>
             </div>
           </div>

@@ -178,7 +178,7 @@ export default function LoginPage() {
                   e.currentTarget.style.textDecoration = 'none';
                 }}
               >
-                Don't have an account? <span className="font-semibold">Register</span>
+                Don&apos;t have an account? <span className="font-semibold">Register</span>
               </button>
             </div>
           </form>
@@ -188,7 +188,7 @@ export default function LoginPage() {
             className="mt-8 p-4 rounded-lg text-sm leading-relaxed"
             style={{ backgroundColor: '#f5f5f5', color: '#4a5568' }}
           >
-            <strong className="font-semibold" style={{ color: '#2d3748' }}>Passkeys</strong> use your device's biometrics (fingerprint, face recognition) or PIN for secure authentication. No passwords needed!
+            <strong className="font-semibold" style={{ color: '#2d3748' }}>Passkeys</strong> use your device&apos;s biometrics (fingerprint, face recognition) or PIN for secure authentication. No passwords needed!
           </div>
         </div>
       </div>

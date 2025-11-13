@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         title: importTodo.title,
         priority: importTodo.priority || 'medium',
         due_date: importTodo.due_date || null,
-        is_recurring: importTodo.is_recurring ? 1 : 0,
+        is_recurring: importTodo.is_recurring ? true : false,
         recurrence_pattern: importTodo.recurrence_pattern || null,
         reminder_minutes: importTodo.reminder_minutes || null,
       });

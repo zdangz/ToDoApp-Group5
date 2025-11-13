@@ -233,6 +233,9 @@ export const todoDB = {
     });
     db.prepare(`UPDATE todos SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(...values, id);
   },
+  updateLastNotificationSent: (id: number, timestamp: string): void => {
+    db.prepare('UPDATE todos SET last_notification_sent = ? WHERE id = ?').run(timestamp, id);
+  },
   delete: (id: number): void => {
     db.prepare('DELETE FROM todos WHERE id = ?').run(id);
   },

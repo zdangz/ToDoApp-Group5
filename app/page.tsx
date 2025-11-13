@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useNotifications } from '@/lib/hooks/useNotifications';
 
 export default function HomePage() {
   const router = useRouter();
@@ -42,6 +43,23 @@ export default function HomePage() {
   const [templateCategory, setTemplateCategory] = useState('');
   const [currentTodoForTemplate, setCurrentTodoForTemplate] = useState<any>(null);
 
+  // Notification state
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+
+  // Use notifications hook
+  useNotifications(notificationsEnabled, fetchTodos);
+
+  useEffect(() => {
+    // Check notification permission on mount
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotificationPermission(Notification.permission);
+      // Load notification preference from localStorage
+      const savedPref = localStorage.getItem('notificationsEnabled');
+      setNotificationsEnabled(savedPref === 'true' && Notification.permission === 'granted');
+    }
+  }, []);
+
   useEffect(() => {
     fetchTodos();
     fetchTemplates();
@@ -75,6 +93,30 @@ export default function HomePage() {
     } else {
       const data = await res.json();
       setUsername(data.username);
+    }
+  }
+
+  async function toggleNotifications() {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      alert('Your browser does not support notifications');
+      return;
+    }
+
+    if (!notificationsEnabled) {
+      // Request permission
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      
+      if (permission === 'granted') {
+        setNotificationsEnabled(true);
+        localStorage.setItem('notificationsEnabled', 'true');
+      } else {
+        alert('Notification permission denied. Please enable it in your browser settings.');
+      }
+    } else {
+      // Disable notifications
+      setNotificationsEnabled(false);
+      localStorage.setItem('notificationsEnabled', 'false');
     }
   }
 
@@ -366,7 +408,7 @@ export default function HomePage() {
     }
   }
   
-  async function useTemplate(templateId: number) {
+  async function applyTemplate(templateId: number) {
     try {
       const res = await fetch(`/api/templates/${templateId}/use`, {
         method: 'POST',
@@ -658,8 +700,17 @@ export default function HomePage() {
             >
               📋 Templates
             </button>
-            <button className="px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md" style={{ backgroundColor: '#f97316' }}>
-              🔔
+            <button 
+              onClick={toggleNotifications}
+              className="px-4 py-2 rounded-lg font-medium transition-all hover:shadow-md"
+              style={{ 
+                backgroundColor: notificationsEnabled ? 'transparent' : '#f97316',
+                color: notificationsEnabled ? '#64748b' : '#ffffff',
+                border: notificationsEnabled ? '2px solid #e2e8f0' : 'none'
+              }}
+              title={notificationsEnabled ? 'Notifications enabled' : 'Notifications muted'}
+            >
+              {notificationsEnabled ? '🔔' : '🔕'}
             </button>
             <button
               onClick={logout}
@@ -787,7 +838,8 @@ export default function HomePage() {
                 <select
                   value={reminderMinutes || ''}
                   onChange={(e) => setReminderMinutes(e.target.value ? Number(e.target.value) : null)}
-                  className="px-3 py-1.5 border rounded-lg"
+                  disabled={!dueDate}
+                  className="px-3 py-1.5 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: '#ffffff',
                     borderColor: '#e2e8f0',
@@ -798,7 +850,10 @@ export default function HomePage() {
                   <option value="15">15 minutes before</option>
                   <option value="30">30 minutes before</option>
                   <option value="60">1 hour before</option>
+                  <option value="120">2 hours before</option>
                   <option value="1440">1 day before</option>
+                  <option value="2880">2 days before</option>
+                  <option value="10080">1 week before</option>
                 </select>
               </label>
 
@@ -1433,7 +1488,7 @@ export default function HomePage() {
 
                       <div className="flex gap-2">
                         <button
-                          onClick={() => useTemplate(template.id)}
+                          onClick={() => applyTemplate(template.id)}
                           className="flex-1 px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md"
                           style={{ backgroundColor: '#3b82f6' }}
                         >
@@ -1441,7 +1496,7 @@ export default function HomePage() {
                         </button>
                         <button
                           onClick={() => {
-                            if (confirm(`Delete template "${template.name}"?`)) {
+                            if (confirm('Delete template "' + template.name + '"?')) {
                               deleteTemplate(template.id);
                             }
                           }}

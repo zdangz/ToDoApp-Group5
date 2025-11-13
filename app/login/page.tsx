@@ -2,12 +2,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
+import type { PublicKeyCredentialCreationOptionsJSON, PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/types';
 
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
   async function handleRegister() {
     if (!username.trim()) {
@@ -19,19 +22,47 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // For demo purposes, we'll create a simple password-based login
-      // In production, this would use WebAuthn
-      const res = await fetch('/api/auth/register', {
+      // Get registration options from server
+      const optionsRes = await fetch('/api/auth/register-options', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim() }),
       });
 
-      if (res.ok) {
+      if (!optionsRes.ok) {
+        const data = await optionsRes.json();
+        setError(data.error || 'Failed to start registration');
+        setLoading(false);
+        return;
+      }
+
+      const options: PublicKeyCredentialCreationOptionsJSON = await optionsRes.json();
+
+      // Start WebAuthn registration
+      let attResp;
+      try {
+        attResp = await startRegistration({ optionsJSON: options });
+      } catch (err: any) {
+        setError(err.message || 'Biometric authentication failed');
+        setLoading(false);
+        return;
+      }
+
+      // Verify registration with server
+      const verifyRes = await fetch('/api/auth/register-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username.trim(),
+          response: attResp,
+        }),
+      });
+
+      if (verifyRes.ok) {
         router.push('/');
       } else {
-        const data = await res.json();
-        setError(data.error || 'Registration failed');
+        const data = await verifyRes.json();
+        setError(data.error || 'Registration verification failed');
       }
     } catch (err) {
       setError('Network error. Please try again.');
@@ -51,17 +82,47 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/auth/login', {
+      // Get authentication options from server
+      const optionsRes = await fetch('/api/auth/login-options', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim() }),
       });
 
-      if (res.ok) {
+      if (!optionsRes.ok) {
+        const data = await optionsRes.json();
+        setError(data.error || 'User not found');
+        setLoading(false);
+        return;
+      }
+
+      const options: PublicKeyCredentialRequestOptionsJSON = await optionsRes.json();
+
+      // Start WebAuthn authentication
+      let asseResp;
+      try {
+        asseResp = await startAuthentication({ optionsJSON: options });
+      } catch (err: any) {
+        setError(err.message || 'Biometric authentication failed');
+        setLoading(false);
+        return;
+      }
+
+      // Verify authentication with server
+      const verifyRes = await fetch('/api/auth/login-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username.trim(),
+          response: asseResp,
+        }),
+      });
+
+      if (verifyRes.ok) {
         router.push('/');
       } else {
-        const data = await res.json();
-        setError(data.error || 'Login failed');
+        const data = await verifyRes.json();
+        setError(data.error || 'Login verification failed');
       }
     } catch (err) {
       setError('Network error. Please try again.');

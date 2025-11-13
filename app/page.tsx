@@ -160,6 +160,12 @@ export default function HomePage() {
   async function addTodo(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
+    
+    // Validate: Recurring todos require a due date
+    if (isRecurring && !dueDate) {
+      alert('Recurring todos require a due date. Please set a due date.');
+      return;
+    }
 
     console.log('Adding todo with data:', {
       title: title.trim(),
@@ -259,6 +265,12 @@ export default function HomePage() {
 
   async function updateTodo() {
     if (!editingTodo || !editTitle.trim()) return;
+    
+    // Validate: Recurring todos require a due date
+    if (editIsRecurring && !editDueDate) {
+      alert('Recurring todos require a due date. Please set a due date.');
+      return;
+    }
 
     try {
       const res = await fetch(`/api/todos/${editingTodo.id}`, {
@@ -1301,6 +1313,15 @@ export default function HomePage() {
                             >
                               {todo.priority.charAt(0).toUpperCase() + todo.priority.slice(1)}
                             </span>
+                            {todo.is_recurring && (
+                              <span 
+                                className="px-2 py-0.5 rounded text-xs font-medium"
+                                style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}
+                                title={`Repeats ${todo.recurrence_pattern}`}
+                              >
+                                🔄 {todo.recurrence_pattern?.charAt(0).toUpperCase() + todo.recurrence_pattern?.slice(1)}
+                              </span>
+                            )}
                             {progress.total > 0 && (
                               <span className="text-sm font-medium" style={{ color: '#6b7280' }}>
                                 {progress.completed}/{progress.total}
@@ -1477,7 +1498,18 @@ export default function HomePage() {
                       style={{ accentColor: '#3b82f6' }}
                     />
                     <div className="flex-1">
-                      <span className="line-through" style={{ color: '#9ca3af' }}>{todo.title}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="line-through" style={{ color: '#9ca3af' }}>{todo.title}</span>
+                        {todo.is_recurring && (
+                          <span 
+                            className="px-2 py-0.5 rounded text-xs font-medium"
+                            style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}
+                            title={`Repeats ${todo.recurrence_pattern}`}
+                          >
+                            🔄 {todo.recurrence_pattern?.charAt(0).toUpperCase() + todo.recurrence_pattern?.slice(1)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <button
                       onClick={() => openEditModal(todo)}

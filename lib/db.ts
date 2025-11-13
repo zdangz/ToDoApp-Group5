@@ -212,35 +212,43 @@ export const userDB = {
     return db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
   },
   getByUsername: (username: string): User | undefined => {
+    const db = initDB();
     return db.prepare('SELECT * FROM users WHERE username = ?').get(username) as User | undefined;
   },
   list: (): User[] => {
+    const db = initDB();
     return db.prepare('SELECT * FROM users ORDER BY created_at DESC').all() as User[];
   },
 };
 
 export const authenticatorDB = {
   create: (userId: number, credentialId: string, publicKey: string, counter: number): Authenticator => {
+    const db = initDB();
     const stmt = db.prepare('INSERT INTO authenticators (user_id, credential_id, public_key, counter) VALUES (?, ?, ?, ?)');
     const result = stmt.run(userId, credentialId, publicKey, counter);
     return authenticatorDB.getById(Number(result.lastInsertRowid))!;
   },
   getByCredentialId: (credentialId: string): Authenticator | undefined => {
+    const db = initDB();
     return db.prepare('SELECT * FROM authenticators WHERE credential_id = ?').get(credentialId) as Authenticator | undefined;
   },
   getById: (id: number): Authenticator | undefined => {
+    const db = initDB();
     return db.prepare('SELECT * FROM authenticators WHERE id = ?').get(id) as Authenticator | undefined;
   },
   getByUserId: (userId: number): Authenticator[] => {
+    const db = initDB();
     return db.prepare('SELECT * FROM authenticators WHERE user_id = ?').all(userId) as Authenticator[];
   },
   updateCounter: (id: number, counter: number): void => {
+    const db = initDB();
     db.prepare('UPDATE authenticators SET counter = ? WHERE id = ?').run(counter, id);
   },
 };
 
 export const todoDB = {
   create: (data: Partial<Todo>): Todo => {
+    const db = initDB();
     const stmt = db.prepare(`
       INSERT INTO todos (user_id, title, priority, due_date, is_recurring, recurrence_pattern, reminder_minutes)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -257,12 +265,15 @@ export const todoDB = {
     return todoDB.getById(Number(result.lastInsertRowid))!;
   },
   getById: (id: number): Todo | undefined => {
+    const db = initDB();
     return db.prepare('SELECT * FROM todos WHERE id = ?').get(id) as Todo | undefined;
   },
   listByUserId: (userId: number): Todo[] => {
+    const db = initDB();
     return db.prepare('SELECT * FROM todos WHERE user_id = ? ORDER BY completed ASC, priority DESC, due_date ASC').all(userId) as Todo[];
   },
   update: (id: number, data: Partial<Todo>): void => {
+    const db = initDB();
     const fields = Object.keys(data).filter(k => k !== 'id').map(k => `${k} = ?`).join(', ');
     const values = Object.keys(data).filter(k => k !== 'id').map(k => {
       const val = (data as any)[k];
@@ -273,65 +284,80 @@ export const todoDB = {
     db.prepare(`UPDATE todos SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(...values, id);
   },
   updateLastNotificationSent: (id: number, timestamp: string): void => {
+    const db = initDB();
     db.prepare('UPDATE todos SET last_notification_sent = ? WHERE id = ?').run(timestamp, id);
   },
   delete: (id: number): void => {
+    const db = initDB();
     db.prepare('DELETE FROM todos WHERE id = ?').run(id);
   },
 };
 
 export const subtaskDB = {
   create: (todoId: number, title: string, position: number): Subtask => {
+    const db = initDB();
     const stmt = db.prepare('INSERT INTO subtasks (todo_id, title, position) VALUES (?, ?, ?)');
     const result = stmt.run(todoId, title, position);
     return subtaskDB.getById(Number(result.lastInsertRowid))!;
   },
   getById: (id: number): Subtask | undefined => {
+    const db = initDB();
     return db.prepare('SELECT * FROM subtasks WHERE id = ?').get(id) as Subtask | undefined;
   },
   listByTodoId: (todoId: number): Subtask[] => {
+    const db = initDB();
     return db.prepare('SELECT * FROM subtasks WHERE todo_id = ? ORDER BY position ASC').all(todoId) as Subtask[];
   },
   update: (id: number, data: Partial<Subtask>): void => {
+    const db = initDB();
     const fields = Object.keys(data).filter(k => k !== 'id').map(k => `${k} = ?`).join(', ');
     const values = Object.keys(data).filter(k => k !== 'id').map(k => (data as any)[k]);
     db.prepare(`UPDATE subtasks SET ${fields} WHERE id = ?`).run(...values, id);
   },
   delete: (id: number): void => {
+    const db = initDB();
     db.prepare('DELETE FROM subtasks WHERE id = ?').run(id);
   },
 };
 
 export const tagDB = {
   create: (userId: number, name: string, color: string): Tag => {
+    const db = initDB();
     const stmt = db.prepare('INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?)');
     const result = stmt.run(userId, name, color);
     return tagDB.getById(Number(result.lastInsertRowid))!;
   },
   getById: (id: number): Tag | undefined => {
+    const db = initDB();
     return db.prepare('SELECT * FROM tags WHERE id = ?').get(id) as Tag | undefined;
   },
   listByUserId: (userId: number): Tag[] => {
+    const db = initDB();
     return db.prepare('SELECT * FROM tags WHERE user_id = ? ORDER BY name ASC').all(userId) as Tag[];
   },
   update: (id: number, data: Partial<Tag>): void => {
+    const db = initDB();
     const fields = Object.keys(data).filter(k => k !== 'id').map(k => `${k} = ?`).join(', ');
     const values = Object.keys(data).filter(k => k !== 'id').map(k => (data as any)[k]);
     db.prepare(`UPDATE tags SET ${fields} WHERE id = ?`).run(...values, id);
   },
   delete: (id: number): void => {
+    const db = initDB();
     db.prepare('DELETE FROM tags WHERE id = ?').run(id);
   },
 };
 
 export const todoTagDB = {
   add: (todoId: number, tagId: number): void => {
+    const db = initDB();
     db.prepare('INSERT OR IGNORE INTO todo_tags (todo_id, tag_id) VALUES (?, ?)').run(todoId, tagId);
   },
   remove: (todoId: number, tagId: number): void => {
+    const db = initDB();
     db.prepare('DELETE FROM todo_tags WHERE todo_id = ? AND tag_id = ?').run(todoId, tagId);
   },
   getTagsForTodo: (todoId: number): Tag[] => {
+    const db = initDB();
     return db.prepare(`
       SELECT t.* FROM tags t
       INNER JOIN todo_tags tt ON t.id = tt.tag_id
@@ -342,30 +368,37 @@ export const todoTagDB = {
 
 export const holidayDB = {
   create: (date: string, name: string, year: number): Holiday => {
+    const db = initDB();
     const stmt = db.prepare('INSERT INTO holidays (date, name, year) VALUES (?, ?, ?)');
     const result = stmt.run(date, name, year);
     return holidayDB.getById(Number(result.lastInsertRowid))!;
   },
   getById: (id: number): Holiday | undefined => {
+    const db = initDB();
     return db.prepare('SELECT * FROM holidays WHERE id = ?').get(id) as Holiday | undefined;
   },
   getByYear: (year: number): Holiday[] => {
+    const db = initDB();
     return db.prepare('SELECT * FROM holidays WHERE year = ? ORDER BY date ASC').all(year) as Holiday[];
   },
   getByDateRange: (startDate: string, endDate: string): Holiday[] => {
+    const db = initDB();
     return db.prepare('SELECT * FROM holidays WHERE date >= ? AND date <= ? ORDER BY date ASC')
       .all(startDate, endDate) as Holiday[];
   },
   list: (): Holiday[] => {
+    const db = initDB();
     return db.prepare('SELECT * FROM holidays ORDER BY date DESC').all() as Holiday[];
   },
   deleteByYear: (year: number): void => {
+    const db = initDB();
     db.prepare('DELETE FROM holidays WHERE year = ?').run(year);
   },
 };
 
 export const templateDB = {
   create: (userId: number, name: string, todoData: string, subtasksData: string | null, description?: string, category?: string): Template => {
+    const db = initDB();
     const stmt = db.prepare(`
       INSERT INTO templates (user_id, name, description, category, todo_data, subtasks_data)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -374,17 +407,21 @@ export const templateDB = {
     return templateDB.getById(Number(result.lastInsertRowid))!;
   },
   getById: (id: number): Template | undefined => {
+    const db = initDB();
     return db.prepare('SELECT * FROM templates WHERE id = ?').get(id) as Template | undefined;
   },
   listByUserId: (userId: number): Template[] => {
+    const db = initDB();
     return db.prepare('SELECT * FROM templates WHERE user_id = ? ORDER BY created_at DESC')
       .all(userId) as Template[];
   },
   listByCategory: (userId: number, category: string): Template[] => {
+    const db = initDB();
     return db.prepare('SELECT * FROM templates WHERE user_id = ? AND category = ? ORDER BY created_at DESC')
       .all(userId, category) as Template[];
   },
   update: (id: number, data: Partial<Template>): void => {
+    const db = initDB();
     const fields = Object.keys(data).filter(k => k !== 'id').map(k => `${k} = ?`).join(', ');
     const values = Object.keys(data).filter(k => k !== 'id').map(k => (data as any)[k]);
     db.prepare(`UPDATE templates SET ${fields} WHERE id = ?`).run(...values, id);

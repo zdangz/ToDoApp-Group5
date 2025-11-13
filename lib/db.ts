@@ -70,13 +70,26 @@ export interface Holiday {
   year: number;
 }
 
-// Database path
-const dbPath = path.join(process.cwd(), 'todos.db');
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
+// Database path - use Railway volume if available, otherwise project root
+const dbPath = process.env.RAILWAY_VOLUME_MOUNT_PATH 
+  ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'todos.db')
+  : path.join(process.cwd(), 'todos.db');
 
-// Initialize database schema
-db.exec(`
+// Only initialize database if not in build phase
+let db: Database.Database;
+
+if (process.env.NEXT_PHASE === 'phase-production-build') {
+  // During build, create a mock database object to prevent errors
+  db = {} as Database.Database;
+} else {
+  // Normal runtime: initialize the real database
+  db = new Database(dbPath);
+  db.pragma('journal_mode = WAL');
+}
+
+// Initialize database schema (skip during build)
+if (process.env.NEXT_PHASE !== 'phase-production-build') {
+  db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
@@ -161,6 +174,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_subtasks_todo_id ON subtasks(todo_id);
   CREATE INDEX IF NOT EXISTS idx_tags_user_id ON tags(user_id);
 `);
+}
 
 // Database operations
 export const userDB = {

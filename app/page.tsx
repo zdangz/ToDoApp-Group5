@@ -17,11 +17,25 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showDataMenu, setShowDataMenu] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importSuccess, setImportSuccess] = useState('');
 
   useEffect(() => {
     fetchTodos();
     checkAuth();
-  }, []);
+
+    // Close dropdown when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showDataMenu && !target.closest('.data-menu-container')) {
+        setShowDataMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showDataMenu]);
 
   async function checkAuth() {
     const res = await fetch('/api/auth/me');
@@ -121,6 +135,120 @@ export default function HomePage() {
     router.push('/login');
   }
 
+  async function exportJSON() {
+    try {
+      const res = await fetch('/api/todos/export');
+      if (res.ok) {
+        const data = await res.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `todos-export-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setShowDataMenu(false);
+      } else {
+        alert('Export failed');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Export failed');
+    }
+  }
+
+  async function exportCSV() {
+    try {
+      const res = await fetch('/api/todos/export');
+      if (res.ok) {
+        const data = await res.json();
+        
+        // Convert to CSV
+        let csv = 'Title,Priority,Due Date,Completed,Recurring,Reminder,Tags\n';
+        
+        for (const todo of data.todos) {
+          const tagNames = todo.tag_ids
+            .map((tagId: number) => data.tags.find((t: any) => t.id === tagId)?.name)
+            .filter(Boolean)
+            .join('; ');
+          
+          const row = [
+            `"${todo.title.replace(/"/g, '""')}"`,
+            todo.priority,
+            todo.due_date || '',
+            todo.completed ? 'Yes' : 'No',
+            todo.is_recurring ? 'Yes' : 'No',
+            todo.reminder_minutes ? `${todo.reminder_minutes} min` : '',
+            `"${tagNames}"`
+          ];
+          
+          csv += row.join(',') + '\n';
+        }
+        
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `todos-export-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setShowDataMenu(false);
+      } else {
+        alert('Export failed');
+      }
+    } catch (error) {
+      console.error('Export CSV error:', error);
+      alert('Export failed');
+    }
+  }
+
+  async function handleImportJSON(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportError('');
+    setImportSuccess('');
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      const res = await fetch('/api/todos/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        setImportSuccess(
+          `Import successful! Imported ${result.counts.todos} todos, ${result.counts.subtasks} subtasks, and ${result.counts.tags} tags.`
+        );
+        setShowDataMenu(false);
+        fetchTodos(); // Refresh the todo list
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => setImportSuccess(''), 5000);
+      } else {
+        setImportError(result.error || 'Import failed');
+      }
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        setImportError('Invalid JSON file');
+      } else {
+        setImportError('Import failed: ' + (error as Error).message);
+      }
+    }
+
+    // Reset file input
+    event.target.value = '';
+  }
+
   const priorityColors = {
     high: 'bg-red-500',
     medium: 'bg-yellow-500',
@@ -158,9 +286,48 @@ export default function HomePage() {
             <p className="text-base" style={{ color: '#718096' }}>Welcome, {username}</p>
           </div>
           <div className="flex gap-3">
-            <button className="px-4 py-2 bg-white rounded-lg font-medium transition-all hover:shadow-md" style={{ color: '#4a5568' }}>
-              📊 Data
-            </button>
+            {/* Data Button with Dropdown */}
+            <div className="relative data-menu-container">
+              <button 
+                onClick={() => setShowDataMenu(!showDataMenu)}
+                className="px-4 py-2 bg-white rounded-lg font-medium transition-all hover:shadow-md flex items-center gap-2" 
+                style={{ color: '#4a5568' }}
+              >
+                📊 Data
+              </button>
+              
+              {showDataMenu && (
+                <div 
+                  className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg py-2 z-10 min-w-[180px]"
+                  style={{ border: '1px solid #e2e8f0' }}
+                >
+                  <button
+                    onClick={exportJSON}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors"
+                    style={{ color: '#2d3748' }}
+                  >
+                    Export JSON
+                  </button>
+                  <button
+                    onClick={exportCSV}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors"
+                    style={{ color: '#2d3748' }}
+                  >
+                    Export CSV
+                  </button>
+                  <label className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors cursor-pointer block" style={{ color: '#2d3748' }}>
+                    Import JSON
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportJSON}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+
             <button 
               onClick={() => router.push('/calendar')}
               className="px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md"
@@ -183,6 +350,25 @@ export default function HomePage() {
             </button>
           </div>
         </div>
+
+        {/* Import Success/Error Messages */}
+        {importSuccess && (
+          <div className="mb-6 p-4 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#d1fae5', color: '#065f46' }}>
+            <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+            </svg>
+            <span>{importSuccess}</span>
+          </div>
+        )}
+
+        {importError && (
+          <div className="mb-6 p-4 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>
+            <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
+            </svg>
+            <span>{importError}</span>
+          </div>
+        )}
 
         {/* Main Content Card */}
         <div className="bg-white rounded-2xl shadow-lg p-8">

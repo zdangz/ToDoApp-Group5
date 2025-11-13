@@ -47,6 +47,17 @@ export default function HomePage() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
 
+  // Tag state
+  const [tags, setTags] = useState<any[]>([]);
+  const [todoTags, setTodoTags] = useState<{ [todoId: number]: any[] }>({});
+  const [selectedTags, setSelectedTags] = useState<number[]>([]);
+  const [tagFilter, setTagFilter] = useState<number | null>(null);
+  const [showTagsModal, setShowTagsModal] = useState(false);
+  const [tagName, setTagName] = useState('');
+  const [tagColor, setTagColor] = useState('#3b82f6');
+  const [editingTag, setEditingTag] = useState<any>(null);
+  const [tagError, setTagError] = useState('');
+
   // Use notifications hook
   useNotifications(notificationsEnabled, fetchTodos);
 
@@ -63,6 +74,7 @@ export default function HomePage() {
   useEffect(() => {
     fetchTodos();
     fetchTemplates();
+    fetchTags();
     checkAuth();
 
     // Close dropdown when clicking outside
@@ -354,6 +366,145 @@ export default function HomePage() {
       console.error('Failed to fetch templates:', error);
     }
   }
+
+  async function fetchTags() {
+    try {
+      const res = await fetch('/api/tags');
+      if (res.ok) {
+        const data = await res.json();
+        setTags(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch tags:', error);
+    }
+  }
+
+  async function fetchTodoTags(todoId: number) {
+    try {
+      const res = await fetch(`/api/todos/${todoId}/tags`);
+      if (res.ok) {
+        const data = await res.json();
+        setTodoTags(prev => ({ ...prev, [todoId]: data }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch todo tags:', error);
+    }
+  }
+
+  async function createTag(e: React.FormEvent) {
+    e.preventDefault();
+    if (!tagName.trim()) return;
+
+    setTagError('');
+    try {
+      const res = await fetch('/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: tagName.trim(), color: tagColor }),
+      });
+
+      if (res.ok) {
+        setTagName('');
+        setTagColor('#3b82f6');
+        await fetchTags();
+      } else {
+        const error = await res.json();
+        setTagError(error.error || 'Failed to create tag');
+      }
+    } catch (error) {
+      setTagError('Failed to create tag');
+    }
+  }
+
+  async function updateTag() {
+    if (!editingTag || !tagName.trim()) return;
+
+    setTagError('');
+    try {
+      const res = await fetch(`/api/tags/${editingTag.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: tagName.trim(), color: tagColor }),
+      });
+
+      if (res.ok) {
+        setEditingTag(null);
+        setTagName('');
+        setTagColor('#3b82f6');
+        await fetchTags();
+      } else {
+        const error = await res.json();
+        setTagError(error.error || 'Failed to update tag');
+      }
+    } catch (error) {
+      setTagError('Failed to update tag');
+    }
+  }
+
+  async function deleteTag(tagId: number) {
+    if (!confirm('Delete this tag? It will be removed from all todos.')) return;
+
+    try {
+      const res = await fetch(`/api/tags/${tagId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        await fetchTags();
+        // Refresh todo tags for all todos
+        const updatedTodoTags = { ...todoTags };
+        Object.keys(updatedTodoTags).forEach(todoId => {
+          updatedTodoTags[Number(todoId)] = updatedTodoTags[Number(todoId)].filter(t => t.id !== tagId);
+        });
+        setTodoTags(updatedTodoTags);
+      }
+    } catch (error) {
+      console.error('Failed to delete tag:', error);
+    }
+  }
+
+  async function toggleTodoTag(todoId: number, tagId: number) {
+    const currentTags = todoTags[todoId] || [];
+    const hasTag = currentTags.some(t => t.id === tagId);
+
+    try {
+      if (hasTag) {
+        // Remove tag
+        const res = await fetch(`/api/todos/${todoId}/tags?tag_id=${tagId}`, {
+          method: 'DELETE',
+        });
+        if (res.ok) {
+          await fetchTodoTags(todoId);
+        }
+      } else {
+        // Add tag
+        const res = await fetch(`/api/todos/${todoId}/tags`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag_id: tagId }),
+        });
+        if (res.ok) {
+          await fetchTodoTags(todoId);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle todo tag:', error);
+    }
+  }
+
+  function startEditTag(tag: any) {
+    setEditingTag(tag);
+    setTagName(tag.name);
+    setTagColor(tag.color);
+    setTagError('');
+  }
+
+  function cancelEditTag() {
+    setEditingTag(null);
+    setTagName('');
+    setTagColor('#3b82f6');
+    setTagError('');
+  }
   
   async function openSaveTemplateModal() {
     if (!title.trim()) {
@@ -592,7 +743,10 @@ export default function HomePage() {
       matchesDueDate = matchesDueDate && new Date(todo.due_date) <= new Date(dueDateTo + 'T23:59:59');
     }
     
-    return matchesSearch && matchesPriority && matchesCompletion && matchesDueDate;
+    // Tag filter
+    const matchesTag = !tagFilter || (todoTags[todo.id] && todoTags[todo.id].some(t => t.id === tagFilter));
+    
+    return matchesSearch && matchesPriority && matchesCompletion && matchesDueDate && matchesTag;
   });
 
   const activeTodos = filteredTodos.filter(t => !t.completed);
@@ -604,7 +758,8 @@ export default function HomePage() {
     priorityFilter !== 'all',
     completionFilter !== 'all',
     dueDateFrom !== '',
-    dueDateTo !== ''
+    dueDateTo !== '',
+    tagFilter !== null
   ].filter(Boolean).length;
   
   // Clear all filters function
@@ -614,6 +769,7 @@ export default function HomePage() {
     setCompletionFilter('all');
     setDueDateFrom('');
     setDueDateTo('');
+    setTagFilter(null);
   };
   
   // Calculate dashboard statistics

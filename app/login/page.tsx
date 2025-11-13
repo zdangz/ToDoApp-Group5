@@ -41,7 +41,7 @@ export default function LoginPage() {
       // Start WebAuthn registration
       let attResp;
       try {
-        attResp = await startRegistration({ optionsJSON: options });
+        attResp = await startRegistration(options);
       } catch (err: any) {
         setError(err.message || 'Biometric authentication failed');
         setLoading(false);
@@ -101,7 +101,7 @@ export default function LoginPage() {
       // Start WebAuthn authentication
       let asseResp;
       try {
-        asseResp = await startAuthentication({ optionsJSON: options });
+        asseResp = await startAuthentication(options);
       } catch (err: any) {
         setError(err.message || 'Biometric authentication failed');
         setLoading(false);

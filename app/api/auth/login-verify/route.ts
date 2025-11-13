@@ -4,9 +4,7 @@ import type { AuthenticationResponseJSON } from '@simplewebauthn/types';
 import { userDB, authenticatorDB } from '@/lib/db';
 import { createSession } from '@/lib/auth';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
-
-// Import challenges map from login-options
-import { challenges } from '../login-options/route';
+import { challenges } from '@/lib/challenges';
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,8 +45,8 @@ export async function POST(request: NextRequest) {
       expectedRPID: process.env.NEXT_PUBLIC_RP_ID || 'localhost',
       requireUserVerification: true,
       authenticator: {
-        credentialID: isoBase64URL.toBuffer(authenticator.credential_id),
-        credentialPublicKey: isoBase64URL.toBuffer(authenticator.public_key),
+        credentialID: authenticator.credential_id,  // String (base64url)
+        credentialPublicKey: isoBase64URL.toBuffer(authenticator.public_key),  // Uint8Array
         counter: authenticator.counter ?? 0,
       },
     });

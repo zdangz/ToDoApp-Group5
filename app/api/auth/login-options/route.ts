@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateAuthenticationOptions } from '@simplewebauthn/server';
 import { userDB, authenticatorDB } from '@/lib/db';
-import { isoBase64URL } from '@simplewebauthn/server/helpers';
-
-// Store challenges in memory (in production, use Redis or database)
-const challenges = new Map<string, string>();
+import { challenges } from '@/lib/challenges';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,8 +29,8 @@ export async function POST(request: NextRequest) {
       timeout: 60000,
       userVerification: 'required',
       allowCredentials: authenticators.map(auth => ({
-        id: isoBase64URL.toBuffer(auth.credential_id),
-        type: 'public-key',
+        id: auth.credential_id,  // Already a base64url string from database
+        type: 'public-key' as const,
       })),
     });
 
@@ -49,5 +46,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-
-export { challenges };

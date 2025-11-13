@@ -27,6 +27,11 @@ export default function HomePage() {
   const [completionFilter, setCompletionFilter] = useState('all'); // 'all', 'pending', 'completed'
   const [dueDateFrom, setDueDateFrom] = useState('');
   const [dueDateTo, setDueDateTo] = useState('');
+  
+  // Subtasks state
+  const [expandedTodos, setExpandedTodos] = useState<Set<number>>(new Set());
+  const [subtasks, setSubtasks] = useState<{ [todoId: number]: any[] }>({});
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState<{ [todoId: number]: string }>({});
 
   useEffect(() => {
     fetchTodos();
@@ -169,6 +174,120 @@ export default function HomePage() {
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
+  }
+  
+  // Subtask functions
+  async function toggleSubtasksExpanded(todoId: number) {
+    const newExpanded = new Set(expandedTodos);
+    if (newExpanded.has(todoId)) {
+      newExpanded.delete(todoId);
+    } else {
+      newExpanded.add(todoId);
+      // Fetch subtasks if not already loaded
+      if (!subtasks[todoId]) {
+        await fetchSubtasks(todoId);
+      }
+    }
+    setExpandedTodos(newExpanded);
+  }
+  
+  async function fetchSubtasks(todoId: number) {
+    try {
+      const res = await fetch(`/api/todos/${todoId}/subtasks`);
+      if (res.ok) {
+        const data = await res.json();
+        setSubtasks(prev => ({ ...prev, [todoId]: data }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch subtasks:', error);
+    }
+  }
+  
+  async function addSubtask(todoId: number) {
+    const title = newSubtaskTitle[todoId]?.trim();
+    if (!title) return;
+    
+    try {
+      const res = await fetch(`/api/todos/${todoId}/subtasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      });
+      
+      if (res.ok) {
+        const subtask = await res.json();
+        setSubtasks(prev => ({
+          ...prev,
+          [todoId]: [...(prev[todoId] || []), subtask]
+        }));
+        setNewSubtaskTitle(prev => ({ ...prev, [todoId]: '' }));
+      }
+    } catch (error) {
+      console.error('Failed to add subtask:', error);
+    }
+  }
+  
+  async function toggleSubtask(subtaskId: number, todoId: number, completed: boolean) {
+    // Optimistic update
+    setSubtasks(prev => ({
+      ...prev,
+      [todoId]: prev[todoId].map(st => 
+        st.id === subtaskId ? { ...st, completed: !completed } : st
+      )
+    }));
+    
+    try {
+      const res = await fetch(`/api/subtasks/${subtaskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: !completed }),
+      });
+      
+      if (!res.ok) {
+        // Revert on failure
+        setSubtasks(prev => ({
+          ...prev,
+          [todoId]: prev[todoId].map(st => 
+            st.id === subtaskId ? { ...st, completed: completed } : st
+          )
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to toggle subtask:', error);
+      // Revert on error
+      setSubtasks(prev => ({
+        ...prev,
+        [todoId]: prev[todoId].map(st => 
+          st.id === subtaskId ? { ...st, completed: completed } : st
+        )
+      }));
+    }
+  }
+  
+  async function deleteSubtask(subtaskId: number, todoId: number) {
+    try {
+      const res = await fetch(`/api/subtasks/${subtaskId}`, {
+        method: 'DELETE',
+      });
+      
+      if (res.ok) {
+        setSubtasks(prev => ({
+          ...prev,
+          [todoId]: prev[todoId].filter(st => st.id !== subtaskId)
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to delete subtask:', error);
+    }
+  }
+  
+  // Calculate progress for a todo
+  function calculateProgress(todoId: number): { completed: number; total: number; percentage: number } {
+    const todoSubtasks = subtasks[todoId] || [];
+    const total = todoSubtasks.length;
+    const completed = todoSubtasks.filter(st => st.completed).length;
+    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return { completed, total, percentage };
   }
 
   async function exportJSON() {
@@ -339,6 +458,14 @@ export default function HomePage() {
     setDueDateFrom('');
     setDueDateTo('');
   };
+  
+  // Calculate dashboard statistics
+  const now = new Date();
+  const overdueTodos = todos.filter(todo => 
+    !todo.completed && todo.due_date && new Date(todo.due_date) < now
+  ).length;
+  const pendingTodos = activeTodos.length;
+  const completedTodosCount = completedTodos.length;
 
   if (loading) {
     return (
@@ -737,49 +864,201 @@ export default function HomePage() {
           )}
 
           {activeTodos.length > 0 && (
-            <div className="space-y-3">
-              {activeTodos.map((todo) => (
-                <div
-                  key={todo.id}
-                  className="flex items-center gap-4 p-4 border rounded-lg hover:shadow-md transition-all"
-                  style={{ borderColor: '#e2e8f0', backgroundColor: '#ffffff' }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={todo.completed}
-                    onChange={() => toggleTodo(todo.id, todo.completed)}
-                    className="w-5 h-5 rounded cursor-pointer"
-                    style={{ accentColor: '#3b82f6' }}
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 rounded-full ${priorityColors[todo.priority as keyof typeof priorityColors]}`} />
-                      <span className="font-medium" style={{ color: '#1a202c' }}>{todo.title}</span>
+            <>
+              <h2 className="text-2xl font-bold mb-4" style={{ color: '#2563eb' }}>
+                Pending ({pendingTodos})
+              </h2>
+              <div className="space-y-3">
+                {activeTodos.map((todo) => {
+                  const progress = calculateProgress(todo.id);
+                  const isExpanded = expandedTodos.has(todo.id);
+                  
+                  return (
+                    <div
+                      key={todo.id}
+                      className="border rounded-lg hover:shadow-md transition-all"
+                      style={{ borderColor: '#e2e8f0', backgroundColor: '#ffffff' }}
+                    >
+                      <div className="flex items-center gap-4 p-4">
+                        <input
+                          type="checkbox"
+                          checked={todo.completed}
+                          onChange={() => toggleTodo(todo.id, todo.completed)}
+                          className="w-5 h-5 rounded cursor-pointer"
+                          style={{ accentColor: '#3b82f6' }}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium" style={{ color: '#1a202c' }}>{todo.title}</span>
+                            <span 
+                              className="px-2 py-0.5 rounded text-xs font-medium"
+                              style={{ 
+                                backgroundColor: todo.priority === 'high' ? '#fef2f2' : todo.priority === 'medium' ? '#fefce8' : '#eff6ff',
+                                color: todo.priority === 'high' ? '#dc2626' : todo.priority === 'medium' ? '#ca8a04' : '#2563eb'
+                              }}
+                            >
+                              {todo.priority.charAt(0).toUpperCase() + todo.priority.slice(1)}
+                            </span>
+                            {progress.total > 0 && (
+                              <span className="text-sm font-medium" style={{ color: '#6b7280' }}>
+                                {progress.completed}/{progress.total}
+                              </span>
+                            )}
+                          </div>
+                          {todo.due_date && (
+                            <span className="text-sm" style={{ color: new Date(todo.due_date) < now ? '#ef4444' : '#9ca3af' }}>
+                              {new Date(todo.due_date).toLocaleString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                hour: 'numeric', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                          )}
+                        </div>
+                        
+                        <button
+                          onClick={() => toggleSubtasksExpanded(todo.id)}
+                          className="px-3 py-1.5 rounded-lg font-medium transition-all hover:bg-gray-100 flex items-center gap-1"
+                          style={{ color: '#4a5568' }}
+                        >
+                          <span style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
+                          Subtasks
+                        </button>
+                        
+                        <button
+                          className="px-3 py-1.5 rounded-lg font-medium transition-all hover:bg-blue-50"
+                          style={{ color: '#3b82f6' }}
+                        >
+                          Edit
+                        </button>
+                        
+                        <button
+                          onClick={() => deleteTodo(todo.id)}
+                          className="px-3 py-1.5 rounded-lg font-medium transition-all hover:bg-red-50"
+                          style={{ color: '#ef4444' }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                      
+                      {/* Subtasks Section */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4 border-t" style={{ borderColor: '#e2e8f0' }}>
+                          <div className="pt-4">
+                            {/* Progress Bar */}
+                            {progress.total > 0 && (
+                              <div className="mb-4">
+                                <div className="flex justify-between items-center mb-2">
+                                  <span className="text-sm font-medium" style={{ color: '#6b7280' }}>
+                                    Progress: {progress.completed}/{progress.total} completed ({progress.percentage}%)
+                                  </span>
+                                </div>
+                                <div className="w-full h-2 rounded-full" style={{ backgroundColor: '#e5e7eb' }}>
+                                  <div 
+                                    className="h-2 rounded-full transition-all duration-300"
+                                    style={{ 
+                                      width: `${progress.percentage}%`,
+                                      backgroundColor: progress.percentage === 100 ? '#10b981' : '#3b82f6'
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Add Subtask Input */}
+                            <div className="flex gap-2 mb-3">
+                              <input
+                                type="text"
+                                value={newSubtaskTitle[todo.id] || ''}
+                                onChange={(e) => setNewSubtaskTitle(prev => ({ ...prev, [todo.id]: e.target.value }))}
+                                onKeyPress={(e) => e.key === 'Enter' && addSubtask(todo.id)}
+                                placeholder="Add a subtask..."
+                                className="flex-1 px-3 py-2 border rounded-lg text-sm"
+                                style={{
+                                  backgroundColor: '#ffffff',
+                                  borderColor: '#e2e8f0',
+                                  color: '#2d3748'
+                                }}
+                              />
+                              <button
+                                onClick={() => addSubtask(todo.id)}
+                                className="px-4 py-2 rounded-lg font-medium text-white transition-all hover:shadow-md text-sm"
+                                style={{ backgroundColor: '#3b82f6' }}
+                              >
+                                Add
+                              </button>
+                            </div>
+                            
+                            {/* Subtasks List */}
+                            {subtasks[todo.id] && subtasks[todo.id].length > 0 ? (
+                              <div className="space-y-2">
+                                {subtasks[todo.id].map((subtask: any) => (
+                                  <div 
+                                    key={subtask.id}
+                                    className="flex items-center gap-3 p-2 rounded hover:bg-gray-50"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={subtask.completed}
+                                      onChange={() => toggleSubtask(subtask.id, todo.id, subtask.completed)}
+                                      className="w-4 h-4 rounded cursor-pointer"
+                                      style={{ accentColor: '#3b82f6' }}
+                                    />
+                                    <span 
+                                      className={`flex-1 text-sm ${subtask.completed ? 'line-through' : ''}`}
+                                      style={{ color: subtask.completed ? '#9ca3af' : '#2d3748' }}
+                                    >
+                                      {subtask.title}
+                                    </span>
+                                    <button
+                                      onClick={() => deleteSubtask(subtask.id, todo.id)}
+                                      className="text-sm text-red-500 hover:text-red-700"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-center py-4" style={{ color: '#9ca3af' }}>
+                                No subtasks yet. Add one above!
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    {todo.due_date && (
-                      <span className="text-sm" style={{ color: '#9ca3af' }}>
-                        Due: {new Date(todo.due_date).toLocaleString()}
-                      </span>
-                    )}
+                  );
+                })}
+              </div>
+              
+              {/* Dashboard Statistics */}
+              <div className="mt-6 pt-6 border-t" style={{ borderColor: '#e2e8f0' }}>
+                <div className="grid grid-cols-3 gap-6 text-center">
+                  <div>
+                    <div className="text-4xl font-bold mb-1" style={{ color: '#ef4444' }}>{overdueTodos}</div>
+                    <div className="text-sm" style={{ color: '#6b7280' }}>Overdue</div>
                   </div>
-                  <button
-                    onClick={() => deleteTodo(todo.id)}
-                    className="px-3 py-1.5 rounded-lg font-medium transition-all hover:bg-red-50"
-                    style={{ color: '#ef4444' }}
-                  >
-                    Delete
-                  </button>
+                  <div>
+                    <div className="text-4xl font-bold mb-1" style={{ color: '#3b82f6' }}>{pendingTodos}</div>
+                    <div className="text-sm" style={{ color: '#6b7280' }}>Pending</div>
+                  </div>
+                  <div>
+                    <div className="text-4xl font-bold mb-1" style={{ color: '#10b981' }}>{completedTodosCount}</div>
+                    <div className="text-sm" style={{ color: '#6b7280' }}>Completed</div>
+                  </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            </>
           )}
 
           {/* Completed Todos */}
           {completedTodos.length > 0 && (
             <div className="mt-8">
-              <h3 className="text-lg font-semibold mb-3" style={{ color: '#4a5568' }}>
-                Completed ({completedTodos.length})
-              </h3>
+              <h2 className="text-2xl font-bold mb-4" style={{ color: '#10b981' }}>
+                Completed ({completedTodosCount})
+              </h2>
               <div className="space-y-3">
                 {completedTodos.map((todo) => (
                   <div

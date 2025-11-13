@@ -47,6 +47,7 @@ export default function CalendarPage() {
 
     fetchTodos();
     fetchHolidays();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
@@ -54,6 +55,7 @@ export default function CalendarPage() {
     const year = currentDate.getFullYear();
     const month = String(currentDate.getMonth() + 1).padStart(2, '0');
     router.push(`/calendar?month=${year}-${month}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate]);
 
   async function fetchTodos() {

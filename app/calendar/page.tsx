@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSingaporeNow } from '@/lib/timezone';
 
@@ -28,7 +28,7 @@ interface DayCell {
   holidays: Holiday[];
 }
 
-export default function CalendarPage() {
+function CalendarPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [currentDate, setCurrentDate] = useState<Date>(getSingaporeNow());
@@ -394,5 +394,13 @@ export default function CalendarPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CalendarPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading calendar...</div>}>
+      <CalendarPage />
+    </Suspense>
   );
 }

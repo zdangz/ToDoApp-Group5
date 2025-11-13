@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateRegistrationOptions } from '@simplewebauthn/server';
 import { userDB } from '@/lib/db';
-
-// Store challenges in memory (in production, use Redis or database)
-const challenges = new Map<string, string>();
+import { challenges } from '@/lib/challenges';
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,5 +44,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-
-export { challenges };

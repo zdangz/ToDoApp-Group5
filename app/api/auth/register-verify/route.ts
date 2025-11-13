@@ -4,9 +4,7 @@ import type { RegistrationResponseJSON } from '@simplewebauthn/types';
 import { userDB, authenticatorDB } from '@/lib/db';
 import { createSession } from '@/lib/auth';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
-
-// Import challenges map from register-options
-import { challenges } from '../register-options/route';
+import { challenges } from '@/lib/challenges';
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,15 +41,13 @@ export async function POST(request: NextRequest) {
     // Create user
     const user = userDB.create(username);
 
-    // Store authenticator
-    const { credential, counter } = registrationInfo;
-    const credentialID = isoBase64URL.fromBuffer(credential.id);
-    const credentialPublicKey = isoBase64URL.fromBuffer(credential.publicKey);
+    // Store authenticator - in v10, registrationInfo has fields directly
+    const { credentialID, credentialPublicKey, counter } = registrationInfo;
 
     authenticatorDB.create(
       user.id,
-      credentialID,
-      credentialPublicKey,
+      credentialID,  // Already a base64url string in v10
+      isoBase64URL.fromBuffer(credentialPublicKey),  // Convert Uint8Array to base64url string
       counter ?? 0
     );
 

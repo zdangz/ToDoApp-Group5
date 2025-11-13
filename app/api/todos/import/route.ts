@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
       // Set completed status if needed
       if (importTodo.completed) {
-        todoDB.update(newTodo.id, { completed: 1 });
+        todoDB.update(newTodo.id, { completed: true });
       }
     }
 

@@ -66,6 +66,15 @@ export default function HomePage() {
     e.preventDefault();
     if (!title.trim()) return;
 
+    console.log('Adding todo with data:', {
+      title: title.trim(),
+      priority,
+      due_date: dueDate || null,
+      is_recurring: isRecurring,
+      recurrence_pattern: isRecurring ? recurrencePattern : null,
+      reminder_minutes: reminderMinutes,
+    });
+
     try {
       const res = await fetch('/api/todos', {
         method: 'POST',
@@ -80,16 +89,25 @@ export default function HomePage() {
         }),
       });
 
+      console.log('Add todo response status:', res.status);
+      
       if (res.ok) {
+        const data = await res.json();
+        console.log('Todo created:', data);
         setTitle('');
         setDueDate('');
         setIsRecurring(false);
         setRecurrencePattern('weekly');
         setReminderMinutes(null);
         fetchTodos();
+      } else {
+        const errorData = await res.json();
+        console.error('Failed to add todo:', res.status, errorData);
+        alert('Failed to add todo: ' + (errorData.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to add todo:', error);
+      alert('Error: ' + (error as Error).message);
     }
   }
 

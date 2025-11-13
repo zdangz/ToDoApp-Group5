@@ -87,6 +87,7 @@ export default function HomePage() {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showDataMenu]);
   
   // Debounce search query (300ms)
@@ -1189,7 +1190,7 @@ export default function HomePage() {
             <div className="mb-4 p-3 rounded-lg flex items-center justify-between" style={{ backgroundColor: '#dbeafe', color: '#1e40af' }}>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium">{filteredTodos.length} result(s) found with filters:</span>
-                {debouncedSearchQuery && <span className="px-2 py-1 bg-white rounded text-sm">Search: "{debouncedSearchQuery}"</span>}
+                {debouncedSearchQuery && <span className="px-2 py-1 bg-white rounded text-sm">Search: &quot;{debouncedSearchQuery}&quot;</span>}
                 {priorityFilter !== 'all' && <span className="px-2 py-1 bg-white rounded text-sm">Priority: {priorityFilter}</span>}
                 {completionFilter !== 'all' && <span className="px-2 py-1 bg-white rounded text-sm">Status: {completionFilter}</span>}
                 {dueDateFrom && <span className="px-2 py-1 bg-white rounded text-sm">From: {dueDateFrom}</span>}

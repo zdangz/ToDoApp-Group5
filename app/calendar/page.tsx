@@ -28,7 +28,7 @@ interface DayCell {
   holidays: Holiday[];
 }
 
-function CalendarPage() {
+function CalendarContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [currentDate, setCurrentDate] = useState<Date>(getSingaporeNow());
@@ -47,6 +47,7 @@ function CalendarPage() {
 
     fetchTodos();
     fetchHolidays();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
@@ -54,6 +55,7 @@ function CalendarPage() {
     const year = currentDate.getFullYear();
     const month = String(currentDate.getMonth() + 1).padStart(2, '0');
     router.push(`/calendar?month=${year}-${month}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate]);
 
   async function fetchTodos() {
@@ -397,10 +399,10 @@ function CalendarPage() {
   );
 }
 
-export default function CalendarPageWrapper() {
+export default function CalendarPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading calendar...</div>}>
-      <CalendarPage />
+    <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>Loading calendar...</div>}>
+      <CalendarContent />
     </Suspense>
   );
 }

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateAuthenticationOptions } from '@simplewebauthn/server';
 import { userDB, authenticatorDB } from '@/lib/db';
-import { challenges } from '@/lib/challenges';
+import { isoBase64URL } from '@simplewebauthn/server/helpers';
+import { storeChallenge } from '@/lib/challenge-store';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,16 +30,13 @@ export async function POST(request: NextRequest) {
       timeout: 60000,
       userVerification: 'required',
       allowCredentials: authenticators.map(auth => ({
-        id: auth.credential_id,  // Already a base64url string from database
+        id: auth.credential_id,
         type: 'public-key' as const,
       })),
     });
 
     // Store challenge temporarily
-    challenges.set(username.trim(), options.challenge);
-
-    // Clean up old challenges (older than 5 minutes)
-    setTimeout(() => challenges.delete(username.trim()), 5 * 60 * 1000);
+    storeChallenge(username.trim(), options.challenge);
 
     return NextResponse.json(options);
   } catch (error) {

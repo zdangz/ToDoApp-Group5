@@ -75,21 +75,9 @@ const dbPath = process.env.RAILWAY_VOLUME_MOUNT_PATH
   ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'todos.db')
   : path.join(process.cwd(), 'todos.db');
 
-// Only initialize database if not in build phase
-let db: Database.Database;
-
-if (process.env.NEXT_PHASE === 'phase-production-build') {
-  // During build, create a mock database object to prevent errors
-  db = {} as Database.Database;
-} else {
-  // Normal runtime: initialize the real database
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-}
-
-// Initialize database schema (skip during build)
-if (process.env.NEXT_PHASE !== 'phase-production-build') {
-  db.exec(`
+// Initialize database schema
+function initializeSchema(database: Database.Database) {
+  database.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
@@ -176,14 +164,51 @@ if (process.env.NEXT_PHASE !== 'phase-production-build') {
 `);
 }
 
+// Lazy database initialization to prevent issues during build/startup
+let db: Database.Database | null = null;
+let isInitialized = false;
+
+function initDB(): Database.Database {
+  if (!db && !isInitialized) {
+    isInitialized = true;
+    
+    // Skip initialization during build phase
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      throw new Error('Database cannot be accessed during build phase');
+    }
+    
+    try {
+      console.log('Initializing database at:', dbPath);
+      db = new Database(dbPath);
+      db.pragma('journal_mode = WAL');
+      
+      // Initialize schema
+      initializeSchema(db);
+      console.log('Database initialized successfully');
+    } catch (error) {
+      console.error('Database initialization error:', error);
+      isInitialized = false;
+      throw error;
+    }
+  }
+  
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+  
+  return db;
+}
+
 // Database operations
 export const userDB = {
   create: (username: string): User => {
+    const db = initDB();
     const stmt = db.prepare('INSERT INTO users (username) VALUES (?)');
     const result = stmt.run(username);
     return userDB.getById(Number(result.lastInsertRowid))!;
   },
   getById: (id: number): User | undefined => {
+    const db = initDB();
     return db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
   },
   getByUsername: (username: string): User | undefined => {
@@ -365,8 +390,7 @@ export const templateDB = {
     db.prepare(`UPDATE templates SET ${fields} WHERE id = ?`).run(...values, id);
   },
   delete: (id: number): void => {
+    const db = initDB();
     db.prepare('DELETE FROM templates WHERE id = ?').run(id);
   },
 };
-
-export default db;
